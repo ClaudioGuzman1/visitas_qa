@@ -3,1245 +3,801 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Plan de Predicación</title>
+<title>Territorios de Predicación</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Spectral:wght@400;600&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root {
-    --bg: #f5f2ec;
-    --surface: #ffffff;
-    --surface2: #f0ece3;
-    --border: #ddd8cc;
-    --text: #1a1714;
-    --text2: #6b6560;
-    --accent: #2d5a3d;
-    --accent-light: #e8f0ea;
-    --accent2: #c4853a;
-    --danger: #c0392b;
-    --danger-light: #fdf0ee;
-    --shadow: 0 2px 12px rgba(0,0,0,0.07);
-    --shadow-lg: 0 8px 32px rgba(0,0,0,0.12);
-    --radius: 12px;
-    --radius-sm: 8px;
-    --font-display: 'DM Serif Display', serif;
-    --font-body: 'DM Sans', sans-serif;
-    --transition: 0.2s ease;
+    --teal: #0F6E56; --teal-light: #E1F5EE; --teal-mid: #1D9E75; --teal-dark: #085041;
+    --amber: #BA7517; --amber-light: #FAEEDA; --amber-mid: #EF9F27;
+    --coral: #993C1D; --coral-light: #FAECE7;
+    --blue: #185FA5; --blue-light: #E6F1FB;
+    --gray-50: #F8F7F4; --gray-100: #EDECEA; --gray-200: #D3D1C7;
+    --gray-600: #5F5E5A; --gray-900: #2C2C2A;
+    --bg: #F4F2ED; --surface: #FDFCFA;
+    --radius: 10px; --radius-lg: 16px;
   }
-  [data-theme="dark"] {
-    --bg: #141210;
-    --surface: #1e1b18;
-    --surface2: #252219;
-    --border: #2e2a24;
-    --text: #f0ece3;
-    --text2: #8a8278;
-    --accent: #4a8c5c;
-    --accent-light: #1a2e20;
-    --accent2: #d4943a;
-    --danger: #e05040;
-    --danger-light: #2a1a18;
-    --shadow: 0 2px 12px rgba(0,0,0,0.3);
-    --shadow-lg: 0 8px 32px rgba(0,0,0,0.4);
-  }
-
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    font-family: var(--font-body);
-    background: var(--bg);
-    color: var(--text);
-    min-height: 100vh;
-    transition: background var(--transition), color var(--transition);
-  }
-
-  /* ── APP SHELL ── */
-  .app-header {
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-    padding: 0 24px;
-    display: flex;
-    align-items: center;
-    gap: 20px;
-    height: 60px;
-    position: sticky;
-    top: 0;
-    z-index: 100;
-    box-shadow: var(--shadow);
-  }
-  .app-logo {
-    font-family: var(--font-display);
-    font-size: 1.3rem;
-    color: var(--accent);
-    white-space: nowrap;
-  }
-  .app-logo span { color: var(--accent2); font-style: italic; }
-  .app-nav {
-    display: flex;
-    gap: 2px;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 3px;
-    margin-left: auto;
-  }
-  .nav-btn {
-    padding: 6px 14px;
-    border: none;
-    background: transparent;
-    border-radius: var(--radius-sm);
-    font-family: var(--font-body);
-    font-size: 0.82rem;
-    font-weight: 500;
-    color: var(--text2);
-    cursor: pointer;
-    transition: all var(--transition);
-    white-space: nowrap;
-  }
-  .nav-btn.active {
-    background: var(--surface);
-    color: var(--accent);
-    box-shadow: var(--shadow);
-  }
-  .nav-btn:hover:not(.active) { color: var(--text); background: var(--border); }
-
-  .app-body { max-width: 1100px; margin: 0 auto; padding: 28px 20px; }
-
-  /* ── TABS ── */
-  .tab-panel { display: none; animation: fadeIn 0.2s ease; }
-  .tab-panel.active { display: block; }
-  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-
-  /* ── CALENDAR ── */
-  .cal-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 20px;
-  }
-  .cal-title {
-    font-family: var(--font-display);
-    font-size: 1.8rem;
-    color: var(--text);
-    text-transform: capitalize;
-  }
-  .cal-nav { display: flex; gap: 8px; align-items: center; }
-  .cal-nav button {
-    width: 36px; height: 36px;
-    border: 1px solid var(--border);
-    background: var(--surface);
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    font-size: 1rem;
-    color: var(--text2);
-    transition: all var(--transition);
-    display: flex; align-items: center; justify-content: center;
-  }
-  .cal-nav button:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
-
-  .cal-grid {
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    gap: 6px;
-  }
-  .cal-dow {
-    text-align: center;
-    font-size: 0.72rem;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--text2);
-    padding: 6px 0;
-  }
-  .cal-day {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    min-height: 100px;
-    padding: 8px;
-    cursor: pointer;
-    transition: all var(--transition);
-    position: relative;
-    overflow: hidden;
-  }
-  .cal-day:hover { border-color: var(--accent); box-shadow: var(--shadow); transform: translateY(-1px); }
-  .cal-day.empty { background: transparent; border-color: transparent; cursor: default; }
-  .cal-day.empty:hover { transform: none; box-shadow: none; }
-  .cal-day.no-pred { opacity: 0.45; }
-  .cal-day.today { border-color: var(--accent2); }
-  .cal-day.today .day-num { color: var(--accent2); font-weight: 700; }
-  .day-num {
-    font-size: 0.78rem;
-    font-weight: 600;
-    color: var(--text2);
-    margin-bottom: 4px;
-  }
-  .day-lugar {
-    font-size: 0.7rem;
-    font-weight: 600;
-    color: var(--accent);
-    margin-bottom: 3px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .day-turno {
-    font-size: 0.65rem;
-    color: var(--text2);
-    display: flex;
-    align-items: center;
-    gap: 3px;
-    margin-bottom: 1px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .day-turno .hora { color: var(--accent2); font-weight: 600; }
-  .day-turno .sep { color: var(--border); }
-  .no-pred-badge {
-    font-size: 0.6rem;
-    color: var(--text2);
-    font-style: italic;
-    margin-top: 4px;
-  }
-  .has-data-dot {
-    position: absolute;
-    top: 6px; right: 6px;
-    width: 6px; height: 6px;
-    border-radius: 50%;
-    background: var(--accent);
-  }
-
-  /* ── MODAL ── */
-  .modal-overlay {
-    position: fixed; inset: 0;
-    background: rgba(0,0,0,0.45);
-    z-index: 200;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 20px;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.2s ease;
-  }
-  .modal-overlay.open { opacity: 1; pointer-events: all; }
-  .modal {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 28px;
-    width: 100%;
-    max-width: 480px;
-    max-height: 90vh;
-    overflow-y: auto;
-    box-shadow: var(--shadow-lg);
-    transform: translateY(12px);
-    transition: transform 0.2s ease;
-  }
-  .modal-overlay.open .modal { transform: none; }
-  .modal-title {
-    font-family: var(--font-display);
-    font-size: 1.3rem;
-    color: var(--text);
-    margin-bottom: 20px;
-  }
-  .modal-close {
-    float: right;
-    background: none;
-    border: none;
-    font-size: 1.3rem;
-    cursor: pointer;
-    color: var(--text2);
-    line-height: 1;
-    padding: 2px 6px;
-    border-radius: 6px;
-  }
-  .modal-close:hover { background: var(--surface2); }
-
-  /* ── FORM ── */
-  .form-group { margin-bottom: 14px; }
-  .form-label {
-    display: block;
-    font-size: 0.78rem;
-    font-weight: 600;
-    color: var(--text2);
-    margin-bottom: 5px;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-  .form-input, .form-select {
-    width: 100%;
-    padding: 9px 12px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    background: var(--surface2);
-    color: var(--text);
-    font-family: var(--font-body);
-    font-size: 0.9rem;
-    transition: border-color var(--transition);
-    outline: none;
-  }
-  .form-input:focus, .form-select:focus { border-color: var(--accent); }
-  .form-select option { background: var(--surface); }
-
-  .toggle-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 10px 0;
-    border-top: 1px solid var(--border);
-    margin-top: 4px;
-  }
-  .toggle-label { font-size: 0.88rem; font-weight: 500; }
-  .toggle {
-    width: 44px; height: 24px;
-    background: var(--border);
-    border-radius: 12px;
-    position: relative;
-    cursor: pointer;
-    border: none;
-    transition: background var(--transition);
-  }
-  .toggle.on { background: var(--accent); }
-  .toggle::after {
-    content: '';
-    position: absolute;
-    top: 3px; left: 3px;
-    width: 18px; height: 18px;
-    border-radius: 50%;
-    background: #fff;
-    transition: left var(--transition);
-    box-shadow: 0 1px 4px rgba(0,0,0,0.2);
-  }
-  .toggle.on::after { left: 23px; }
-
-  .copy-dates { margin-top: 16px; border-top: 1px solid var(--border); padding-top: 14px; }
-  .copy-dates-title { font-size: 0.78rem; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
-  .copy-dates-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 5px;
-    max-height: 160px;
-    overflow-y: auto;
-  }
-  .copy-date-btn {
-    padding: 5px;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    background: var(--surface2);
-    color: var(--text);
-    font-size: 0.72rem;
-    cursor: pointer;
-    text-align: center;
-    transition: all var(--transition);
-  }
-  .copy-date-btn.selected { background: var(--accent-light); border-color: var(--accent); color: var(--accent); font-weight: 600; }
-  .copy-date-btn:hover:not(.selected) { border-color: var(--accent); }
-
-  /* ── BUTTONS ── */
-  .btn {
-    padding: 9px 18px;
-    border-radius: var(--radius-sm);
-    border: none;
-    font-family: var(--font-body);
-    font-size: 0.88rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all var(--transition);
-  }
-  .btn-primary { background: var(--accent); color: #fff; }
-  .btn-primary:hover { filter: brightness(1.1); }
-  .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
-  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
-  .btn-danger { background: var(--danger-light); color: var(--danger); border: 1px solid var(--danger); }
-  .btn-danger:hover { background: var(--danger); color: #fff; }
-  .btn-sm { padding: 5px 12px; font-size: 0.8rem; }
-  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; flex-wrap: wrap; }
-
-  /* ── DATA TABLES (Capitanes / Lugares) ── */
-  .section-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 16px;
-  }
-  .section-title { font-family: var(--font-display); font-size: 1.4rem; }
-
-  .data-table {
-    width: 100%;
-    border-collapse: separate;
-    border-spacing: 0;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    overflow: hidden;
-    box-shadow: var(--shadow);
-  }
-  .data-table th {
-    background: var(--surface2);
-    padding: 10px 14px;
-    text-align: left;
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--text2);
-    border-bottom: 1px solid var(--border);
-  }
-  .data-table td {
-    padding: 10px 14px;
-    font-size: 0.88rem;
-    border-bottom: 1px solid var(--border);
-    color: var(--text);
-  }
-  .data-table tr:last-child td { border-bottom: none; }
-  .data-table tr:hover td { background: var(--surface2); }
-  .td-actions { display: flex; gap: 6px; }
-  .tag {
-    display: inline-block;
-    padding: 3px 9px;
-    border-radius: 20px;
-    font-size: 0.72rem;
-    font-weight: 600;
-    background: var(--accent-light);
-    color: var(--accent);
-  }
-
-  /* ── SETTINGS ── */
-  .settings-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 24px;
-    box-shadow: var(--shadow);
-    margin-bottom: 16px;
-  }
-  .settings-card-title {
-    font-family: var(--font-display);
-    font-size: 1.1rem;
-    margin-bottom: 16px;
-    color: var(--text);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .theme-grid { display: flex; gap: 10px; flex-wrap: wrap; }
-  .theme-option {
-    flex: 1;
-    min-width: 120px;
-    padding: 14px;
-    border: 2px solid var(--border);
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    transition: all var(--transition);
-    text-align: center;
-    background: var(--surface2);
-  }
-  .theme-option:hover { border-color: var(--accent); }
-  .theme-option.active { border-color: var(--accent); background: var(--accent-light); }
-  .theme-icon { font-size: 1.6rem; margin-bottom: 6px; }
-  .theme-name { font-size: 0.82rem; font-weight: 600; }
-
-  /* ── STATUS ── */
-  .status-bar {
-    position: fixed;
-    bottom: 16px; right: 16px;
-    background: var(--text);
-    color: var(--bg);
-    padding: 10px 16px;
-    border-radius: var(--radius);
-    font-size: 0.82rem;
-    font-weight: 500;
-    box-shadow: var(--shadow-lg);
-    z-index: 300;
-    transform: translateY(80px);
-    transition: transform 0.3s ease;
-    max-width: 280px;
-  }
-  .status-bar.show { transform: none; }
-  .status-bar.success { background: var(--accent); }
-  .status-bar.error { background: var(--danger); color: #fff; }
-
-  .empty-state {
-    text-align: center;
-    padding: 40px 20px;
-    color: var(--text2);
-  }
-  .empty-state .icon { font-size: 2.5rem; margin-bottom: 10px; }
-  .empty-state p { font-size: 0.9rem; }
-
-  .conn-status {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 0.78rem;
-    font-weight: 500;
-    padding: 5px 10px;
-    border-radius: 20px;
-    border: 1px solid var(--border);
-    margin-left: auto;
-  }
-  .conn-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--border); }
-  .conn-dot.connected { background: #27ae60; }
-  .conn-dot.error { background: var(--danger); }
-
-  .supabase-note {
-    background: var(--accent-light);
-    border: 1px solid var(--accent);
-    border-radius: var(--radius-sm);
-    padding: 12px 14px;
-    font-size: 0.82rem;
-    color: var(--accent);
-    margin-top: 14px;
-    line-height: 1.5;
-  }
-  .supabase-note code {
-    background: rgba(0,0,0,0.08);
-    padding: 1px 5px;
-    border-radius: 4px;
-    font-size: 0.78rem;
-  }
-  pre.sql-block {
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    padding: 14px;
-    font-size: 0.75rem;
-    overflow-x: auto;
-    margin-top: 10px;
-    color: var(--text);
-    white-space: pre;
-    line-height: 1.6;
-  }
-
-  /* ── RESPONSIVE ── */
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--gray-900); min-height: 100vh; font-size: 14px; }
+  .app { display: flex; height: 100vh; overflow: hidden; }
+  .sidebar { width: 340px; min-width: 300px; background: var(--surface); border-right: 1px solid var(--gray-200); display: flex; flex-direction: column; overflow: hidden; z-index: 10; }
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  .header { background: var(--teal-dark); color: white; padding: 14px 20px; display: flex; align-items: center; gap: 10px; }
+  .header-icon { font-size: 22px; }
+  .header h1 { font-family: 'Spectral', serif; font-size: 17px; font-weight: 600; line-height: 1.2; }
+  .header small { font-size: 11px; opacity: 0.7; display: block; }
+  .header-sync { margin-left: auto; font-size: 18px; cursor: pointer; opacity: 0.8; transition: opacity 0.2s; }
+  .header-sync:hover { opacity: 1; }
+  .tabs { display: flex; border-bottom: 1px solid var(--gray-200); background: var(--surface); }
+  .tab { flex: 1; padding: 10px 6px; text-align: center; cursor: pointer; font-size: 12px; font-weight: 500; color: var(--gray-600); border-bottom: 2px solid transparent; transition: all 0.15s; line-height: 1.3; }
+  .tab.active { color: var(--teal); border-bottom-color: var(--teal-mid); }
+  .tab-icon { display: block; font-size: 18px; margin-bottom: 2px; }
+  .panel { display: none; flex: 1; overflow-y: auto; padding: 16px; flex-direction: column; gap: 14px; }
+  .panel.active { display: flex; }
+  .card { background: white; border-radius: var(--radius); border: 1px solid var(--gray-200); padding: 14px; }
+  .card-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--gray-600); margin-bottom: 10px; }
+  .territory-item { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--gray-100); cursor: pointer; transition: background 0.1s; }
+  .territory-item:last-child { border-bottom: none; padding-bottom: 0; }
+  .territory-item:hover { background: var(--gray-50); margin: 0 -14px; padding: 10px 14px; border-radius: 6px; }
+  .t-badge { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 13px; flex-shrink: 0; }
+  .t-info { flex: 1; min-width: 0; }
+  .t-name { font-weight: 500; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .t-date { font-size: 11px; color: var(--gray-600); margin-top: 2px; }
+  .t-status { font-size: 10px; font-weight: 600; padding: 3px 8px; border-radius: 20px; white-space: nowrap; }
+  .status-active { background: var(--teal-light); color: var(--teal-dark); }
+  .status-done { background: var(--gray-100); color: var(--gray-600); }
+  .form-group { margin-bottom: 12px; }
+  .form-group label { display: block; font-size: 11px; font-weight: 600; color: var(--gray-600); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 8px 10px; border: 1px solid var(--gray-200); border-radius: var(--radius); font-family: 'DM Sans', sans-serif; font-size: 13px; background: white; color: var(--gray-900); transition: border 0.15s; }
+  .form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: var(--teal-mid); }
+  .form-group textarea { resize: vertical; min-height: 60px; }
+  .btn { padding: 9px 16px; border-radius: var(--radius); border: none; font-family: 'DM Sans', sans-serif; font-weight: 500; font-size: 13px; cursor: pointer; transition: all 0.15s; display: inline-flex; align-items: center; gap: 6px; }
+  .btn-primary { background: var(--teal); color: white; }
+  .btn-primary:hover { background: var(--teal-dark); }
+  .btn-secondary { background: var(--gray-100); color: var(--gray-900); }
+  .btn-secondary:hover { background: var(--gray-200); }
+  .btn-danger { background: var(--coral-light); color: var(--coral); }
+  .btn-danger:hover { background: #f5c4b3; }
+  .btn-sm { padding: 5px 10px; font-size: 12px; }
+  .btn-block { width: 100%; justify-content: center; }
+  .btn-icon { padding: 7px; border-radius: 8px; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  #map { flex: 1; z-index: 1; }
+  .map-toolbar { background: white; border-bottom: 1px solid var(--gray-200); padding: 10px 16px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .map-toolbar-title { font-weight: 600; font-size: 13px; color: var(--teal-dark); margin-right: 4px; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--gray-600); }
+  .legend-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+  .map-controls { display: flex; gap: 8px; margin-left: auto; }
+  .session-stat { display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: var(--gray-50); border-radius: var(--radius); border: 1px solid var(--gray-100); margin-bottom: 8px; }
+  .session-stat-icon { font-size: 20px; }
+  .session-stat-label { font-size: 10px; color: var(--gray-600); text-transform: uppercase; letter-spacing: 0.05em; }
+  .session-stat-value { font-size: 14px; font-weight: 600; }
+  .progress-bar { height: 6px; background: var(--gray-100); border-radius: 3px; overflow: hidden; margin-top: 6px; }
+  .progress-fill { height: 100%; background: var(--teal-mid); border-radius: 3px; transition: width 0.3s; }
+  .modal-overlay { position: fixed; inset: 0; background: rgba(44,44,42,0.5); z-index: 1000; display: none; align-items: center; justify-content: center; padding: 20px; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: white; border-radius: var(--radius-lg); max-width: 480px; width: 100%; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.15); }
+  .modal-header { padding: 18px 20px 14px; display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid var(--gray-100); margin-bottom: 18px; }
+  .modal-header h2 { font-family: 'Spectral', serif; font-size: 17px; font-weight: 600; }
+  .modal-body { padding: 0 20px 20px; }
+  .modal-footer { padding: 14px 20px; border-top: 1px solid var(--gray-100); display: flex; gap: 8px; justify-content: flex-end; }
+  #point-map { height: 220px; border-radius: var(--radius); overflow: hidden; border: 1px solid var(--gray-200); margin-bottom: 8px; }
+  .point-coords { font-size: 11px; color: var(--gray-600); margin-bottom: 12px; }
+  .toast { position: fixed; bottom: 20px; right: 20px; z-index: 2000; background: var(--teal-dark); color: white; padding: 12px 18px; border-radius: var(--radius); font-size: 13px; max-width: 300px; transform: translateY(100px); opacity: 0; transition: all 0.3s; pointer-events: none; display: flex; align-items: center; gap: 8px; }
+  .toast.show { transform: translateY(0); opacity: 1; }
+  .toast.error { background: #711f1f; }
+  .empty-state { text-align: center; padding: 30px 16px; color: var(--gray-600); }
+  .empty-state-icon { font-size: 36px; margin-bottom: 10px; }
+  .empty-state p { font-size: 13px; line-height: 1.5; }
+  .badge-0 { background: #E1F5EE; color: #085041; } .badge-1 { background: #E6F1FB; color: #0C447C; }
+  .badge-2 { background: #FAEEDA; color: #633806; } .badge-3 { background: #FAECE7; color: #4A1B0C; }
+  .badge-4 { background: #EEEDFE; color: #26215C; } .badge-5 { background: #EAF3DE; color: #173404; }
+  .log-item { display: flex; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--gray-100); font-size: 12px; }
+  .log-item:last-child { border-bottom: none; }
+  .log-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 4px; flex-shrink: 0; }
+  .log-text { color: var(--gray-900); line-height: 1.4; }
+  .log-date { color: var(--gray-600); margin-top: 2px; font-size: 11px; }
+  /* Loading overlay */
+  .loading-overlay { position: fixed; inset: 0; background: rgba(8,80,65,0.92); z-index: 3000; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; gap: 16px; }
+  .loading-overlay.hidden { display: none; }
+  .spinner { width: 40px; height: 40px; border: 3px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-overlay p { font-size: 14px; opacity: 0.85; }
+  /* Sync indicator */
+  .sync-dot { width: 8px; height: 8px; border-radius: 50%; background: #9FE1CB; display: inline-block; margin-left: 6px; }
+  .sync-dot.syncing { background: var(--amber-mid); animation: pulse 1s infinite; }
+  .sync-dot.error { background: #F09595; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  /* SQL modal */
+  .sql-block { background: #1a1a1a; color: #9FE1CB; font-family: monospace; font-size: 12px; padding: 14px; border-radius: var(--radius); overflow-x: auto; white-space: pre; line-height: 1.6; margin-bottom: 12px; }
   @media (max-width: 700px) {
-    .app-header { padding: 0 12px; gap: 10px; }
-    .app-logo { font-size: 1rem; }
-    .nav-btn { padding: 5px 8px; font-size: 0.75rem; }
-    .app-body { padding: 16px 10px; }
-    .cal-day { min-height: 70px; padding: 5px; }
-    .cal-dow { font-size: 0.62rem; }
-    .day-turno, .day-lugar { font-size: 0.58rem; }
-    .modal { padding: 18px; }
+    .app { flex-direction: column; }
+    .sidebar { width: 100%; height: 45vh; min-width: unset; }
+    .main { height: 55vh; }
   }
 </style>
 </head>
 <body>
 
-<header class="app-header">
-  <div class="app-logo">Plan de <span>Predicación</span></div>
-  <div class="conn-status" id="connStatus">
-    <div class="conn-dot" id="connDot"></div>
-    <span id="connText">Sin conexión</span>
-  </div>
-  <nav class="app-nav">
-    <button class="nav-btn active" onclick="showTab('calendario',this)">📅 Calendario</button>
-    <button class="nav-btn" onclick="showTab('datos',this)">👥 Datos</button>
-    <button class="nav-btn" onclick="showTab('estilo',this)">🎨 Estilo</button>
-    <button class="nav-btn" onclick="showTab('config',this)">⚙️ Config</button>
-  </nav>
-</header>
+<!-- LOADING -->
+<div class="loading-overlay" id="loading-overlay">
+  <div class="spinner"></div>
+  <p id="loading-msg">Conectando con Supabase…</p>
+</div>
 
-<main class="app-body">
-
-  <!-- ═══ TAB: CALENDARIO ═══ -->
-  <div id="tab-calendario" class="tab-panel active">
-    <div class="cal-header">
-      <div class="cal-title" id="calTitle">—</div>
-      <div class="cal-nav">
-        <button onclick="changeMonth(-1)" title="Mes anterior">&#8592;</button>
-        <button onclick="goToday()" title="Hoy" style="font-size:0.75rem;width:auto;padding:0 10px;">Hoy</button>
-        <button onclick="changeMonth(1)" title="Mes siguiente">&#8594;</button>
-      </div>
-    </div>
-    <div class="cal-grid" id="calGrid"></div>
-  </div>
-
-  <!-- ═══ TAB: DATOS ═══ -->
-  <div id="tab-datos" class="tab-panel">
-    <div style="display:grid;gap:32px;">
-
-      <!-- Capitanes -->
+<div class="app">
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="header">
+      <div class="header-icon">🗺️</div>
       <div>
-        <div class="section-header">
-          <div class="section-title">Capitanes</div>
-          <button class="btn btn-primary btn-sm" onclick="openCapitanModal()">+ Añadir</button>
-        </div>
-        <table class="data-table" id="capitanesTable">
-          <thead><tr><th>Nombre</th><th>Teléfono</th><th>Acciones</th></tr></thead>
-          <tbody id="capitanesTbody"></tbody>
-        </table>
+        <h1>Territorios <span class="sync-dot" id="sync-dot" title="Estado de sincronización"></span></h1>
+        <small>Control de Predicación</small>
       </div>
+      <div class="header-sync" onclick="syncAll()" title="Sincronizar">🔄</div>
+    </div>
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('territorios')"><span class="tab-icon">📋</span>Territorios</div>
+      <div class="tab" onclick="switchTab('sesion')"><span class="tab-icon">📍</span>Hoy</div>
+      <div class="tab" onclick="switchTab('historial')"><span class="tab-icon">📅</span>Historial</div>
+    </div>
 
-      <!-- Lugares -->
-      <div>
-        <div class="section-header">
-          <div class="section-title">Lugares de Encuentro</div>
-          <button class="btn btn-primary btn-sm" onclick="openLugarModal()">+ Añadir</button>
-        </div>
-        <table class="data-table" id="lugaresTable">
-          <thead><tr><th>Nombre</th><th>Dirección</th><th>Acciones</th></tr></thead>
-          <tbody id="lugaresTbody"></tbody>
-        </table>
+    <!-- TERRITORIOS -->
+    <div class="panel active" id="panel-territorios">
+      <button class="btn btn-primary btn-block" onclick="openNewTerritoryModal()">＋ Nuevo Territorio</button>
+      <div id="territory-list-container">
+        <div class="empty-state"><div class="empty-state-icon">🗺️</div><p>Cargando territorios…</p></div>
       </div>
+    </div>
 
+    <!-- SESIÓN -->
+    <div class="panel" id="panel-sesion">
+      <div class="card">
+        <div class="card-title">Sesión de hoy</div>
+        <div class="form-group">
+          <label>Territorio activo</label>
+          <select id="active-territory-select" onchange="onActiveTerritoryChange()">
+            <option value="">-- Seleccionar --</option>
+          </select>
+        </div>
+        <div id="session-info" style="display:none">
+          <div class="session-stat"><div class="session-stat-icon">🟢</div><div><div class="session-stat-label">Inicio hoy</div><div class="session-stat-value" id="session-start-display">Sin marcar</div></div></div>
+          <div class="session-stat"><div class="session-stat-icon">🔴</div><div><div class="session-stat-label">Fin hoy</div><div class="session-stat-value" id="session-end-display">Sin marcar</div></div></div>
+          <div class="session-stat"><div class="session-stat-icon">🟡</div><div><div class="session-stat-label">Continuar mañana</div><div class="session-stat-value" id="session-tomorrow-display">Sin marcar</div></div></div>
+          <div style="margin-top:6px;">
+            <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--gray-600);margin-bottom:4px;">
+              <span>Sesiones en este territorio</span><span id="progress-pct">0</span>
+            </div>
+            <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Marcar puntos en el mapa</div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <button class="btn btn-secondary btn-block btn-sm" onclick="startPickPoint('start')">🟢 Punto de inicio hoy</button>
+          <button class="btn btn-secondary btn-block btn-sm" onclick="startPickPoint('end')">🔴 Punto de fin hoy</button>
+          <button class="btn btn-secondary btn-block btn-sm" onclick="startPickPoint('tomorrow')">🟡 Continuar mañana desde aquí</button>
+        </div>
+        <div id="pick-mode-banner" style="display:none;margin-top:10px;padding:8px 10px;background:var(--amber-light);border-radius:var(--radius);font-size:12px;color:var(--amber);">
+          📌 Haz clic en el mapa para colocar el punto…
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Notas de la sesión</div>
+        <div class="form-group">
+          <textarea id="session-notes" placeholder="Observaciones del día..." rows="3"></textarea>
+        </div>
+        <button class="btn btn-primary btn-sm btn-block" onclick="saveSessionNotes()">💾 Guardar notas</button>
+      </div>
+      <div class="card" id="today-route-card" style="display:none">
+        <div class="card-title">Ruta de hoy</div>
+        <button class="btn btn-primary btn-sm" onclick="showTodayRoute()">📍 Ver ruta en mapa</button>
+      </div>
+    </div>
+
+    <!-- HISTORIAL -->
+    <div class="panel" id="panel-historial">
+      <div class="card">
+        <div class="card-title">Registro de actividad</div>
+        <div id="history-log"><div class="empty-state"><div class="empty-state-icon">📅</div><p>Cargando historial…</p></div></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Territorios completados</div>
+        <div id="completed-list"><p style="font-size:12px;color:var(--gray-600);">Ninguno completado aún.</p></div>
+      </div>
     </div>
   </div>
 
-  <!-- ═══ TAB: ESTILO ═══ -->
-  <div id="tab-estilo" class="tab-panel">
-    <div class="settings-card">
-      <div class="settings-card-title">🎨 Tema Visual</div>
-      <div class="theme-grid">
-        <div class="theme-option active" id="theme-light" onclick="setTheme('light')">
-          <div class="theme-icon">☀️</div>
-          <div class="theme-name">Claro</div>
-        </div>
-        <div class="theme-option" id="theme-dark" onclick="setTheme('dark')">
-          <div class="theme-icon">🌙</div>
-          <div class="theme-name">Oscuro</div>
-        </div>
+  <!-- MAP -->
+  <div class="main">
+    <div class="map-toolbar">
+      <div class="map-toolbar-title">Vista de Territorios</div>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background:#1D9E75"></div>Inicio hoy</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#E24B4A"></div>Fin hoy</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#EF9F27"></div>Mañana</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#185FA5;border-radius:2px;width:14px;height:10px;"></div>Territorio</div>
+      </div>
+      <div class="map-controls">
+        <button class="btn btn-sm btn-secondary" onclick="fitAllTerritories()">🔍 Ver todo</button>
       </div>
     </div>
+    <div id="map"></div>
   </div>
+</div>
 
-  <!-- ═══ TAB: CONFIG ═══ -->
-  <div id="tab-config" class="tab-panel">
-    <div class="settings-card">
-      <div class="settings-card-title">🗄️ Conexión Supabase</div>
+<!-- MODAL: NUEVO TERRITORIO -->
+<div class="modal-overlay" id="modal-territory">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="modal-territory-title">Nuevo Territorio</h2>
+      <button class="btn btn-sm btn-icon btn-secondary" onclick="closeModal('modal-territory')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group"><label>Nombre del territorio *</label><input type="text" id="t-name" placeholder="Ej: Sector Norte 1, Colonia Centro..."></div>
+      <div class="form-group"><label>Número / código</label><input type="text" id="t-code" placeholder="Ej: T-01"></div>
+      <div class="form-group"><label>Fecha de asignación</label><input type="date" id="t-start-date"></div>
+      <div class="form-group"><label>Descripción / límites</label><textarea id="t-description" placeholder="Descripción de calles o límites del territorio..."></textarea></div>
       <div class="form-group">
-        <label class="form-label">Project URL</label>
-        <input class="form-input" id="cfgUrl" type="text" placeholder="https://xxxx.supabase.co" autocomplete="off">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Publishable (anon) Key</label>
-        <input class="form-input" id="cfgKey" type="password" placeholder="eyJhbGci..." autocomplete="off">
-      </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <button class="btn btn-primary" onclick="saveConfig()">Guardar y Conectar</button>
-        <button class="btn btn-secondary" onclick="clearConfig()">Limpiar</button>
-      </div>
-
-      <div class="supabase-note" style="margin-top:16px;">
-        <strong>💡 Las credenciales se guardan cifradas en localStorage.</strong><br>
-        Ejecuta este SQL en el editor de Supabase para crear las tablas:
-      </div>
-
-      <pre class="sql-block">-- Capitanes
-CREATE TABLE capitanes (
-  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  nombre text NOT NULL,
-  telefono text,
-  created_at timestamptz DEFAULT now()
-);
-
--- Lugares de encuentro
-CREATE TABLE lugares (
-  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  nombre text NOT NULL,
-  direccion text,
-  created_at timestamptz DEFAULT now()
-);
-
--- Días del plan
-CREATE TABLE dias_plan (
-  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  fecha date NOT NULL UNIQUE,
-  lugar_id uuid REFERENCES lugares(id) ON DELETE SET NULL,
-  hora_manana time,
-  capitan_manana_id uuid REFERENCES capitanes(id) ON DELETE SET NULL,
-  hora_tarde time,
-  capitan_tarde_id uuid REFERENCES capitanes(id) ON DELETE SET NULL,
-  tiene_predicacion boolean DEFAULT true,
-  created_at timestamptz DEFAULT now()
-);
-
--- RLS: habilitar y crear políticas según tus necesidades
-ALTER TABLE capitanes ENABLE ROW LEVEL SECURITY;
-ALTER TABLE lugares ENABLE ROW LEVEL SECURITY;
-ALTER TABLE dias_plan ENABLE ROW LEVEL SECURITY;
-
--- Política pública de lectura/escritura (ajusta según autenticación)
-CREATE POLICY "allow_all" ON capitanes FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "allow_all" ON lugares FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "allow_all" ON dias_plan FOR ALL USING (true) WITH CHECK (true);</pre>
-    </div>
-  </div>
-
-</main>
-
-<!-- ═══ MODAL: DÍA ═══ -->
-<div class="modal-overlay" id="dayModal">
-  <div class="modal">
-    <button class="modal-close" onclick="closeDayModal()">✕</button>
-    <div class="modal-title" id="dayModalTitle">Día —</div>
-
-    <div class="toggle-row">
-      <span class="toggle-label">Hay predicación este día</span>
-      <button class="toggle on" id="tienePred" onclick="togglePred()"></button>
-    </div>
-
-    <div id="dayForm">
-      <div class="form-group" style="margin-top:14px;">
-        <label class="form-label">Lugar de Encuentro</label>
-        <select class="form-select" id="dLugar"></select>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        <div class="form-group">
-          <label class="form-label">Hora Mañana</label>
-          <input class="form-input" id="dHoraMa" type="time" value="08:00">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Capitán Mañana</label>
-          <select class="form-select" id="dCapMa"></select>
-        </div>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        <div class="form-group">
-          <label class="form-label">Hora Tarde</label>
-          <input class="form-input" id="dHoraTa" type="time" value="14:00">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Capitán Tarde</label>
-          <select class="form-select" id="dCapTa"></select>
-        </div>
-      </div>
-
-      <div class="copy-dates">
-        <div class="copy-dates-title">📋 Copiar en otras fechas del mes</div>
-        <div style="display:flex;flex-direction:column;gap:10px;">
-
-          <div>
-            <div style="font-size:0.72rem;font-weight:600;color:var(--text2);margin-bottom:5px;">📍 Copiar Lugar de Encuentro</div>
-            <div class="copy-dates-grid" id="copyLugarGrid"></div>
-          </div>
-
-          <div>
-            <div style="font-size:0.72rem;font-weight:600;color:var(--text2);margin-bottom:5px;">🌅 Copiar Capitán Mañana</div>
-            <div class="copy-dates-grid" id="copyCapMaGrid"></div>
-          </div>
-
-          <div>
-            <div style="font-size:0.72rem;font-weight:600;color:var(--text2);margin-bottom:5px;">🌇 Copiar Capitán Tarde</div>
-            <div class="copy-dates-grid" id="copyCapTaGrid"></div>
-          </div>
-
-        </div>
+        <label>Ubicación en mapa</label>
+        <div id="point-map"></div>
+        <div class="point-coords" id="point-coords-display">Haz clic en el mapa para centrar el territorio</div>
       </div>
     </div>
-
-    <div class="modal-actions">
-      <button class="btn btn-secondary" onclick="closeDayModal()">Cancelar</button>
-      <button class="btn btn-primary" onclick="saveDayModal()">Guardar</button>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-territory')">Cancelar</button>
+      <button class="btn btn-primary" id="btn-save-territory" onclick="saveTerritory()">Guardar territorio</button>
     </div>
   </div>
 </div>
 
-<!-- ═══ MODAL: CAPITÁN ═══ -->
-<div class="modal-overlay" id="capitanModal">
+<!-- MODAL: DETALLE TERRITORIO -->
+<div class="modal-overlay" id="modal-detail">
   <div class="modal">
-    <button class="modal-close" onclick="closeCapitanModal()">✕</button>
-    <div class="modal-title" id="capitanModalTitle">Capitán</div>
-    <div class="form-group">
-      <label class="form-label">Nombre completo</label>
-      <input class="form-input" id="cNombre" type="text" placeholder="Nombre del capitán">
+    <div class="modal-header">
+      <h2 id="detail-title">Territorio</h2>
+      <button class="btn btn-sm btn-icon btn-secondary" onclick="closeModal('modal-detail')">✕</button>
     </div>
-    <div class="form-group">
-      <label class="form-label">Teléfono (opcional)</label>
-      <input class="form-input" id="cTelefono" type="tel" placeholder="+52 …">
-    </div>
-    <div class="modal-actions">
-      <button class="btn btn-secondary" onclick="closeCapitanModal()">Cancelar</button>
-      <button class="btn btn-primary" onclick="saveCapitan()">Guardar</button>
+    <div class="modal-body" id="detail-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-danger btn-sm" onclick="deleteCurrentTerritory()">🗑 Eliminar</button>
+      <button class="btn btn-secondary btn-sm" onclick="markTerritoryComplete()">✅ Marcar completado</button>
+      <button class="btn btn-primary btn-sm" onclick="closeModal('modal-detail')">Cerrar</button>
     </div>
   </div>
 </div>
 
-<!-- ═══ MODAL: LUGAR ═══ -->
-<div class="modal-overlay" id="lugarModal">
-  <div class="modal">
-    <button class="modal-close" onclick="closeLugarModal()">✕</button>
-    <div class="modal-title" id="lugarModalTitle">Lugar de Encuentro</div>
-    <div class="form-group">
-      <label class="form-label">Nombre del lugar</label>
-      <input class="form-input" id="lNombre" type="text" placeholder="Ej: Salón del Reino">
+<!-- MODAL: SETUP SQL -->
+<div class="modal-overlay" id="modal-setup">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-header">
+      <h2>⚙️ Configuración inicial requerida</h2>
     </div>
-    <div class="form-group">
-      <label class="form-label">Dirección (opcional)</label>
-      <input class="form-input" id="lDireccion" type="text" placeholder="Calle, número...">
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--gray-600);margin-bottom:14px;">Las tablas no existen aún en tu proyecto Supabase. Ejecuta este SQL en <strong>Supabase → SQL Editor → New query</strong>:</p>
+      <div class="sql-block" id="sql-block"></div>
+      <p style="font-size:12px;color:var(--gray-600);">Después haz clic en <strong>Reintentar</strong> para conectar.</p>
     </div>
-    <div class="modal-actions">
-      <button class="btn btn-secondary" onclick="closeLugarModal()">Cancelar</button>
-      <button class="btn btn-primary" onclick="saveLugar()">Guardar</button>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="retryInit()">🔄 Reintentar conexión</button>
     </div>
   </div>
 </div>
 
-<!-- STATUS BAR -->
-<div class="status-bar" id="statusBar"></div>
+<div class="toast" id="toast"></div>
 
 <script>
-// ══════════════════════════════════════════════════════════
-//  STATE
-// ══════════════════════════════════════════════════════════
-var sbClient = null;
-var capitanes = [];
-var lugares = [];
-var diasPlan = {}; // keyed by 'YYYY-MM-DD'
-var currentYear, currentMonth;
-var editingCapitanId = null;
-var editingLugarId = null;
-var editingDayDate = null;
-var copyDates = new Set();
-var copyLugar = new Set();
-var copyCapMa = new Set();
-var copyCapTa = new Set();
-var statusTimer;
+// ===== SUPABASE CONFIG =====
+const SUPABASE_URL = 'https://pbcyeeqkdudlnqghgwmb.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBiY3llZXFrZHVkbG5xZ2hnd21iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAxMzgwNjksImV4cCI6MjA5NTcxNDA2OX0.HUWjTRPmRAcgcGG-YiCnqVRQlVQlTVX_Q_O6OaCTLjk';
 
-// ══════════════════════════════════════════════════════════
-//  INIT (deferred so DOM + Supabase SDK are ready)
-// ══════════════════════════════════════════════════════════
-document.addEventListener('DOMContentLoaded', async function() {
-  var today = new Date();
-  currentYear = today.getFullYear();
-  currentMonth = today.getMonth();
-  loadTheme();
-  await loadConfig();
-  renderCalendar();
-  // Close modals on overlay click
-  document.querySelectorAll('.modal-overlay').forEach(function(overlay) {
-    overlay.addEventListener('click', function(e) {
-      if (e.target === overlay) overlay.classList.remove('open');
-    });
-  });
-});
+const SQL_SETUP = `-- Ejecutar en Supabase → SQL Editor
+create table if not exists territories (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  code text,
+  description text,
+  start_date date,
+  end_date date,
+  status text default 'active',
+  lat double precision,
+  lng double precision,
+  created_at timestamptz default now()
+);
 
-// ══════════════════════════════════════════════════════════
-//  TABS
-// ══════════════════════════════════════════════════════════
-function showTab(name, btn) {
-  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('tab-' + name).classList.add('active');
-  if (btn) btn.classList.add('active');
-  if (name === 'datos') { renderCapitanes(); renderLugares(); }
+create table if not exists sessions (
+  id uuid primary key default gen_random_uuid(),
+  territory_id uuid references territories(id) on delete cascade,
+  session_date date not null,
+  start_lat double precision,
+  start_lng double precision,
+  end_lat double precision,
+  end_lng double precision,
+  tomorrow_lat double precision,
+  tomorrow_lng double precision,
+  notes text,
+  created_at timestamptz default now(),
+  unique(territory_id, session_date)
+);
+
+create table if not exists history (
+  id uuid primary key default gen_random_uuid(),
+  type text,
+  message text,
+  territory_id uuid,
+  created_at timestamptz default now()
+);`;
+
+let supabase;
+let territories = [];
+let sessions = {};   // key: territoryId_date → session row
+let historyRows = [];
+let map, pointPickerMap;
+let pickMode = null;
+let markers = {}, routeLines = [];
+let newTerritoryLatLng = null;
+let selectedTerritory = null;
+const BADGE_COLORS = ['badge-0','badge-1','badge-2','badge-3','badge-4','badge-5'];
+const MARKER_COLORS = { start: '#1D9E75', end: '#E24B4A', tomorrow: '#EF9F27' };
+
+// ===== INIT =====
+async function init() {
+  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  setLoading('Conectando con Supabase…');
+  try {
+    await loadAll();
+    hideLoading();
+    initMap();
+    renderTerritoryList();
+    refreshSessionSelects();
+  } catch(e) {
+    console.error(e);
+    if (e.message && e.message.includes('does not exist')) {
+      showSetupModal();
+    } else {
+      hideLoading();
+      showToast('Error al conectar: ' + e.message, true);
+    }
+  }
 }
 
-// ══════════════════════════════════════════════════════════
-//  CALENDAR
-// ══════════════════════════════════════════════════════════
-function renderCalendar() {
-  const title = document.getElementById('calTitle');
-  const grid = document.getElementById('calGrid');
-  const date = new Date(currentYear, currentMonth, 1);
-  title.textContent = date.toLocaleDateString('es-MX', { month: 'long', year: 'numeric' });
+async function loadAll() {
+  setLoading('Cargando territorios…');
+  const { data: tData, error: tErr } = await supabase.from('territories').select('*').order('created_at', { ascending: true });
+  if (tErr) throw tErr;
+  territories = tData || [];
 
-  const dows = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
-  let html = dows.map(d => `<div class="cal-dow">${d}</div>`).join('');
+  setLoading('Cargando sesiones…');
+  const { data: sData, error: sErr } = await supabase.from('sessions').select('*');
+  if (sErr) throw sErr;
+  sessions = {};
+  (sData || []).forEach(s => { sessions[`${s.territory_id}_${s.session_date}`] = s; });
 
-  // getDay() returns 0=Sun..6=Sat; convert to 0=Mon..6=Sun
-  const rawDow = date.getDay();
-  const firstDow = (rawDow + 6) % 7;
-  for (let i = 0; i < firstDow; i++) html += '<div class="cal-day empty"></div>';
+  setLoading('Cargando historial…');
+  const { data: hData, error: hErr } = await supabase.from('history').select('*').order('created_at', { ascending: false }).limit(100);
+  if (hErr) throw hErr;
+  historyRows = hData || [];
+}
 
-  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-  const today = new Date();
+async function syncAll() {
+  setSyncState('syncing');
+  try {
+    await loadAll();
+    renderTerritoryList();
+    refreshSessionSelects();
+    renderMap();
+    setSyncState('ok');
+    showToast('Sincronizado ✓');
+  } catch(e) {
+    setSyncState('error');
+    showToast('Error al sincronizar', true);
+  }
+}
 
-  for (let d = 1; d <= daysInMonth; d++) {
-    const dateStr = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-    const plan = diasPlan[dateStr];
-    const isToday = (d === today.getDate() && currentMonth === today.getMonth() && currentYear === today.getFullYear());
-    const noPred = plan && plan.tiene_predicacion === false;
-    let cls = 'cal-day' + (isToday ? ' today' : '') + (noPred ? ' no-pred' : '');
+async function retryInit() {
+  closeModal('modal-setup');
+  setLoading('Reintentando conexión…');
+  try {
+    await loadAll();
+    hideLoading();
+    renderTerritoryList();
+    refreshSessionSelects();
+    showToast('Conectado correctamente ✓');
+  } catch(e) {
+    hideLoading();
+    showSetupModal();
+  }
+}
 
-    let inner = `<div class="day-num">${d}</div>`;
-    if (plan) {
-      inner += `<div class="has-data-dot"></div>`;
-      const lugar = lugares.find(l => l.id === plan.lugar_id);
-      if (lugar) inner += `<div class="day-lugar">${lugar.nombre}</div>`;
-      if (!noPred) {
-        const capMa = capitanes.find(c => c.id === plan.capitan_manana_id);
-        if (plan.hora_manana && capMa) {
-          inner += `<div class="day-turno"><span class="hora">${to12h(plan.hora_manana)}</span><span class="sep">›</span>${capMa.nombre.split(' ')[0]}</div>`;
-        }
-        const capTa = capitanes.find(c => c.id === plan.capitan_tarde_id);
-        if (plan.hora_tarde && capTa) {
-          inner += `<div class="day-turno"><span class="hora">${to12h(plan.hora_tarde)}</span><span class="sep">›</span>${capTa.nombre.split(' ')[0]}</div>`;
-        }
-      } else {
-        inner += `<div class="no-pred-badge">Sin predicación</div>`;
+// ===== SETUP MODAL =====
+function showSetupModal() {
+  hideLoading();
+  document.getElementById('sql-block').textContent = SQL_SETUP;
+  openModal('modal-setup');
+}
+
+// ===== MAP =====
+function initMap() {
+  map = L.map('map').setView([20.97, -89.62], 12);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>', maxZoom: 19
+  }).addTo(map);
+  map.on('click', function(e) { if (pickMode) placeSessionPoint(pickMode, e.latlng); });
+  renderMap();
+}
+
+function renderMap() {
+  Object.values(markers).forEach(m => { try { map.removeLayer(m); } catch(e){} });
+  routeLines.forEach(l => { try { map.removeLayer(l); } catch(e){} });
+  markers = {}; routeLines = [];
+
+  const today = todayKey();
+  territories.forEach((t, i) => {
+    if (!t.lat) return;
+    const color = t.status === 'done' ? '#888' : '#185FA5';
+    const icon = L.divIcon({
+      className: '',
+      html: `<div style="background:${color};color:white;border-radius:6px;padding:3px 7px;font-size:11px;font-weight:600;font-family:DM Sans,sans-serif;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,0.2)">${t.code || t.name.substring(0,6)}</div>`,
+      iconAnchor: [0, 0]
+    });
+    const m = L.marker([t.lat, t.lng], { icon }).addTo(map);
+    m.bindPopup(`<b>${t.name}</b><br>${t.description || ''}<br><small>${t.status==='done'?'✅ Completado':'🟦 Activo'}</small>`);
+    m.on('click', () => openTerritoryDetail(t.id));
+    markers[t.id] = m;
+
+    const session = sessions[`${t.id}_${today}`];
+    if (session) {
+      const pts = [
+        { la: 'start_lat', lo: 'start_lng', color: MARKER_COLORS.start, label: '▶', name: 'Inicio hoy' },
+        { la: 'end_lat', lo: 'end_lng', color: MARKER_COLORS.end, label: '⏹', name: 'Fin hoy' },
+        { la: 'tomorrow_lat', lo: 'tomorrow_lng', color: MARKER_COLORS.tomorrow, label: '⏩', name: 'Mañana' }
+      ];
+      pts.forEach(p => {
+        if (!session[p.la]) return;
+        const icon = L.divIcon({
+          className: '',
+          html: `<div style="background:${p.color};width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;box-shadow:0 2px 6px rgba(0,0,0,0.25);border:2px solid white;">${p.label}</div>`,
+          iconAnchor: [14, 14]
+        });
+        const mk = L.marker([session[p.la], session[p.lo]], { icon }).addTo(map);
+        mk.bindPopup(`<b>${p.name}</b><br>${t.name}`);
+        markers[`${t.id}_${p.la}`] = mk;
+      });
+      if (session.start_lat && session.end_lat) {
+        const l = L.polyline([[session.start_lat, session.start_lng],[session.end_lat, session.end_lng]], { color: MARKER_COLORS.end, weight: 2.5, dashArray: '6 4' }).addTo(map);
+        routeLines.push(l);
+      }
+      if (session.end_lat && session.tomorrow_lat) {
+        const l = L.polyline([[session.end_lat, session.end_lng],[session.tomorrow_lat, session.tomorrow_lng]], { color: MARKER_COLORS.tomorrow, weight: 2, dashArray: '4 6' }).addTo(map);
+        routeLines.push(l);
       }
     }
-
-    html += `<div class="${cls}" onclick="openDayModal('${dateStr}')">${inner}</div>`;
-  }
-
-  grid.innerHTML = html;
+  });
 }
 
-function changeMonth(delta) {
-  currentMonth += delta;
-  if (currentMonth > 11) { currentMonth = 0; currentYear++; }
-  if (currentMonth < 0) { currentMonth = 11; currentYear--; }
-  renderCalendar();
-}
-function goToday() {
-  const t = new Date();
-  currentYear = t.getFullYear();
-  currentMonth = t.getMonth();
-  renderCalendar();
+function fitAllTerritories() {
+  const pts = territories.filter(t => t.lat).map(t => [t.lat, t.lng]);
+  if (pts.length === 0) { showToast('No hay territorios con ubicación'); return; }
+  if (pts.length === 1) { map.setView(pts[0], 14); return; }
+  map.fitBounds(pts, { padding: [40, 40] });
 }
 
-// ══════════════════════════════════════════════════════════
-//  DAY MODAL
-// ══════════════════════════════════════════════════════════
-function openDayModal(dateStr) {
-  editingDayDate = dateStr;
-  copyLugar = new Set();
-  copyCapMa = new Set();
-  copyCapTa = new Set();
-  const plan = diasPlan[dateStr] || {};
-  const d = new Date(dateStr + 'T12:00:00');
-  document.getElementById('dayModalTitle').textContent = d.toLocaleDateString('es-MX', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
-
-  const tienePred = plan.tiene_predicacion !== false;
-  const tog = document.getElementById('tienePred');
-  tog.className = 'toggle' + (tienePred ? ' on' : '');
-  document.getElementById('dayForm').style.display = tienePred ? '' : 'none';
-
-  // Lugares
-  const dLugar = document.getElementById('dLugar');
-  dLugar.innerHTML = '<option value="">— Seleccionar —</option>' + lugares.map(l => `<option value="${l.id}" ${plan.lugar_id===l.id?'selected':''}>${l.nombre}</option>`).join('');
-
-  // Capitanes
-  const capOpts = '<option value="">— Ninguno —</option>' + capitanes.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
-  document.getElementById('dCapMa').innerHTML = capOpts;
-  document.getElementById('dCapTa').innerHTML = capOpts;
-  if (plan.capitan_manana_id) document.getElementById('dCapMa').value = plan.capitan_manana_id;
-  if (plan.capitan_tarde_id) document.getElementById('dCapTa').value = plan.capitan_tarde_id;
-
-  document.getElementById('dHoraMa').value = plan.hora_manana ? plan.hora_manana.slice(0,5) : '08:00';
-  document.getElementById('dHoraTa').value = plan.hora_tarde ? plan.hora_tarde.slice(0,5) : '14:00';
-
-  // Build copy grids
-  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-  function buildCopyGrid(containerId, set) {
-    let html = '';
-    for (let dd = 1; dd <= daysInMonth; dd++) {
-      const ds = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-${String(dd).padStart(2,'0')}`;
-      if (ds === dateStr) continue;
-      html += `<button class="copy-date-btn" id="${containerId}-${ds}" onclick="toggleCopy('${containerId}','${ds}')">${dd}</button>`;
-    }
-    document.getElementById(containerId).innerHTML = html;
-  }
-  buildCopyGrid('copyLugarGrid', copyLugar);
-  buildCopyGrid('copyCapMaGrid', copyCapMa);
-  buildCopyGrid('copyCapTaGrid', copyCapTa);
-
-  document.getElementById('dayModal').classList.add('open');
-}
-function closeDayModal() { document.getElementById('dayModal').classList.remove('open'); }
-
-function togglePred() {
-  const tog = document.getElementById('tienePred');
-  const on = tog.classList.toggle('on');
-  document.getElementById('dayForm').style.display = on ? '' : 'none';
+// ===== TERRITORY CRUD =====
+function openNewTerritoryModal() {
+  selectedTerritory = null;
+  document.getElementById('modal-territory-title').textContent = 'Nuevo Territorio';
+  document.getElementById('t-name').value = '';
+  document.getElementById('t-code').value = '';
+  document.getElementById('t-description').value = '';
+  document.getElementById('t-start-date').value = todayKey();
+  document.getElementById('point-coords-display').textContent = 'Haz clic en el mapa para centrar el territorio';
+  newTerritoryLatLng = null;
+  openModal('modal-territory');
+  setTimeout(initPointPickerMap, 300);
 }
 
-function toggleCopy(gridId, ds) {
-  const setMap = { copyLugarGrid: copyLugar, copyCapMaGrid: copyCapMa, copyCapTaGrid: copyCapTa };
-  const set = setMap[gridId];
-  const btn = document.getElementById(gridId + '-' + ds);
-  if (set.has(ds)) { set.delete(ds); btn.classList.remove('selected'); }
-  else { set.add(ds); btn.classList.add('selected'); }
+function initPointPickerMap() {
+  if (pointPickerMap) { try { pointPickerMap.remove(); } catch(e){} pointPickerMap = null; }
+  const el = document.getElementById('point-map');
+  el._leaflet_id = null;
+  pointPickerMap = L.map('point-map').setView([20.97, -89.62], 12);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(pointPickerMap);
+  let pickerMarker = null;
+  pointPickerMap.on('click', function(e) {
+    if (pickerMarker) pointPickerMap.removeLayer(pickerMarker);
+    pickerMarker = L.marker(e.latlng).addTo(pointPickerMap);
+    newTerritoryLatLng = e.latlng;
+    document.getElementById('point-coords-display').textContent = `Lat: ${e.latlng.lat.toFixed(5)}, Lng: ${e.latlng.lng.toFixed(5)}`;
+  });
 }
 
-async function saveDayModal() {
-  const tienePred = document.getElementById('tienePred').classList.contains('on');
-  const data = {
-    fecha: editingDayDate,
-    tiene_predicacion: tienePred,
-    lugar_id: document.getElementById('dLugar').value || null,
-    hora_manana: tienePred ? (document.getElementById('dHoraMa').value || null) : null,
-    capitan_manana_id: tienePred ? (document.getElementById('dCapMa').value || null) : null,
-    hora_tarde: tienePred ? (document.getElementById('dHoraTa').value || null) : null,
-    capitan_tarde_id: tienePred ? (document.getElementById('dCapTa').value || null) : null,
+async function saveTerritory() {
+  const name = document.getElementById('t-name').value.trim();
+  if (!name) { showToast('Ingresa el nombre del territorio'); return; }
+  const btn = document.getElementById('btn-save-territory');
+  btn.disabled = true; btn.textContent = 'Guardando…';
+  setSyncState('syncing');
+  const payload = {
+    name,
+    code: document.getElementById('t-code').value.trim() || null,
+    description: document.getElementById('t-description').value.trim() || null,
+    start_date: document.getElementById('t-start-date').value || null,
+    status: 'active',
+    lat: newTerritoryLatLng ? newTerritoryLatLng.lat : null,
+    lng: newTerritoryLatLng ? newTerritoryLatLng.lng : null,
   };
-  await upsertDia(data);
-
-  // Collect all dates that need any copy
-  const allDates = new Set([...copyLugar, ...copyCapMa, ...copyCapTa]);
-  for (const ds of allDates) {
-    const existing = { ...(diasPlan[ds] || {}), fecha: ds };
-    if (copyLugar.has(ds)) { existing.lugar_id = data.lugar_id; }
-    if (copyCapMa.has(ds)) { existing.capitan_manana_id = data.capitan_manana_id; existing.hora_manana = data.hora_manana; }
-    if (copyCapTa.has(ds)) { existing.capitan_tarde_id = data.capitan_tarde_id; existing.hora_tarde = data.hora_tarde; }
-    await upsertDia(existing);
-  }
-
-  closeDayModal();
-  renderCalendar();
-  showStatus('Día guardado', 'success');
-}
-
-// ══════════════════════════════════════════════════════════
-//  CAPITANES
-// ══════════════════════════════════════════════════════════
-function renderCapitanes() {
-  const tbody = document.getElementById('capitanesTbody');
-  if (!capitanes.length) {
-    tbody.innerHTML = `<tr><td colspan="3"><div class="empty-state"><div class="icon">👤</div><p>No hay capitanes aún</p></div></td></tr>`;
-    return;
-  }
-  tbody.innerHTML = capitanes.map(c => `
-    <tr>
-      <td>${c.nombre}</td>
-      <td>${c.telefono || '<span style="color:var(--text2)">—</span>'}</td>
-      <td><div class="td-actions">
-        <button class="btn btn-secondary btn-sm" onclick="openCapitanModal('${c.id}')">Editar</button>
-        <button class="btn btn-danger btn-sm" onclick="deleteCapitan('${c.id}')">Eliminar</button>
-      </div></td>
-    </tr>`).join('');
-}
-
-function openCapitanModal(id) {
-  editingCapitanId = id || null;
-  const c = id ? capitanes.find(x => x.id === id) : null;
-  document.getElementById('capitanModalTitle').textContent = id ? 'Editar Capitán' : 'Nuevo Capitán';
-  document.getElementById('cNombre').value = c ? c.nombre : '';
-  document.getElementById('cTelefono').value = c ? (c.telefono || '') : '';
-  document.getElementById('capitanModal').classList.add('open');
-}
-function closeCapitanModal() { document.getElementById('capitanModal').classList.remove('open'); }
-
-async function saveCapitan() {
-  const nombre = document.getElementById('cNombre').value.trim();
-  if (!nombre) { showStatus('El nombre es obligatorio', 'error'); return; }
-  const telefono = document.getElementById('cTelefono').value.trim() || null;
-  if (editingCapitanId) {
-    await updateCapitan(editingCapitanId, { nombre, telefono });
-  } else {
-    await insertCapitan({ nombre, telefono });
-  }
-  closeCapitanModal();
-  renderCapitanes();
-  showStatus('Capitán guardado', 'success');
-}
-
-async function deleteCapitan(id) {
-  if (!confirm('¿Eliminar este capitán?')) return;
-  await removeCapitan(id);
-  renderCapitanes();
-  renderCalendar();
-  showStatus('Capitán eliminado');
-}
-
-// ══════════════════════════════════════════════════════════
-//  LUGARES
-// ══════════════════════════════════════════════════════════
-function renderLugares() {
-  const tbody = document.getElementById('lugaresTbody');
-  if (!lugares.length) {
-    tbody.innerHTML = `<tr><td colspan="3"><div class="empty-state"><div class="icon">📍</div><p>No hay lugares aún</p></div></td></tr>`;
-    return;
-  }
-  tbody.innerHTML = lugares.map(l => `
-    <tr>
-      <td>${l.nombre}</td>
-      <td>${l.direccion || '<span style="color:var(--text2)">—</span>'}</td>
-      <td><div class="td-actions">
-        <button class="btn btn-secondary btn-sm" onclick="openLugarModal('${l.id}')">Editar</button>
-        <button class="btn btn-danger btn-sm" onclick="deleteLugar('${l.id}')">Eliminar</button>
-      </div></td>
-    </tr>`).join('');
-}
-
-function openLugarModal(id) {
-  editingLugarId = id || null;
-  const l = id ? lugares.find(x => x.id === id) : null;
-  document.getElementById('lugarModalTitle').textContent = id ? 'Editar Lugar' : 'Nuevo Lugar';
-  document.getElementById('lNombre').value = l ? l.nombre : '';
-  document.getElementById('lDireccion').value = l ? (l.direccion || '') : '';
-  document.getElementById('lugarModal').classList.add('open');
-}
-function closeLugarModal() { document.getElementById('lugarModal').classList.remove('open'); }
-
-async function saveLugar() {
-  const nombre = document.getElementById('lNombre').value.trim();
-  if (!nombre) { showStatus('El nombre es obligatorio', 'error'); return; }
-  const direccion = document.getElementById('lDireccion').value.trim() || null;
-  if (editingLugarId) {
-    await updateLugar(editingLugarId, { nombre, direccion });
-  } else {
-    await insertLugar({ nombre, direccion });
-  }
-  closeLugarModal();
-  renderLugares();
-  showStatus('Lugar guardado', 'success');
-}
-
-async function deleteLugar(id) {
-  if (!confirm('¿Eliminar este lugar?')) return;
-  await removeLugar(id);
-  renderLugares();
-  renderCalendar();
-  showStatus('Lugar eliminado');
-}
-
-// ══════════════════════════════════════════════════════════
-//  THEME
-// ══════════════════════════════════════════════════════════
-function setTheme(t) {
-  document.body.setAttribute('data-theme', t === 'dark' ? 'dark' : '');
-  document.getElementById('theme-light').classList.toggle('active', t === 'light');
-  document.getElementById('theme-dark').classList.toggle('active', t === 'dark');
-  localStorage.setItem('pred-theme', t);
-}
-function loadTheme() {
-  const t = localStorage.getItem('pred-theme') || 'light';
-  setTheme(t);
-}
-
-// ══════════════════════════════════════════════════════════
-//  SUPABASE CONFIG
-// ══════════════════════════════════════════════════════════
-function encodeB64(str) { return btoa(unescape(encodeURIComponent(str))); }
-function decodeB64(str) { try { return decodeURIComponent(escape(atob(str))); } catch { return ''; } }
-
-async function saveConfig() {
-  const url = document.getElementById('cfgUrl').value.trim();
-  const key = document.getElementById('cfgKey').value.trim();
-  if (!url || !key) { showStatus('Ingresa URL y Key', 'error'); return; }
-  localStorage.setItem('pred-cfg', encodeB64(JSON.stringify({ url, key })));
-  await initSupabase(url, key);
-}
-
-function clearConfig() {
-  localStorage.removeItem('pred-cfg');
-  sbClient = null;
-  updateConnStatus(false);
-  showStatus('Configuración borrada');
-}
-
-async function loadConfig() {
-  const raw = localStorage.getItem('pred-cfg');
-  if (!raw) return;
   try {
-    const { url, key } = JSON.parse(decodeB64(raw));
-    document.getElementById('cfgUrl').value = url;
-    document.getElementById('cfgKey').value = key;
-    await initSupabase(url, key);
-  } catch (e) { console.warn('Config inválida', e); }
-}
-
-async function initSupabase(url, key) {
-  try {
-    sbClient = window.supabase.createClient(url, key);
-    // Test connection
-    const { error } = await sbClient.from('capitanes').select('id').limit(1);
+    const { data, error } = await supabase.from('territories').insert(payload).select().single();
     if (error) throw error;
-    updateConnStatus(true);
-    await loadAllData();
-  } catch (e) {
-    console.error('Supabase error:', e);
-    updateConnStatus(false, true);
-    showStatus('Error de conexión: ' + (e.message || e), 'error');
+    territories.push(data);
+    await addHistoryEntry('territory_created', `Territorio creado: ${name}`, data.id);
+    closeModal('modal-territory');
+    renderTerritoryList();
+    refreshSessionSelects();
+    renderMap();
+    setSyncState('ok');
+    showToast('Territorio guardado ✓');
+  } catch(e) {
+    setSyncState('error');
+    showToast('Error al guardar: ' + e.message, true);
   }
+  btn.disabled = false; btn.textContent = 'Guardar territorio';
 }
 
-function updateConnStatus(ok, err) {
-  const dot = document.getElementById('connDot');
-  const txt = document.getElementById('connText');
-  dot.className = 'conn-dot' + (ok ? ' connected' : (err ? ' error' : ''));
-  txt.textContent = ok ? 'Conectado' : (err ? 'Error' : 'Sin conexión');
+async function deleteCurrentTerritory() {
+  if (!selectedTerritory) return;
+  if (!confirm(`¿Eliminar "${selectedTerritory.name}"? Esta acción no se puede deshacer.`)) return;
+  setSyncState('syncing');
+  const { error } = await supabase.from('territories').delete().eq('id', selectedTerritory.id);
+  if (error) { showToast('Error al eliminar', true); setSyncState('error'); return; }
+  territories = territories.filter(t => t.id !== selectedTerritory.id);
+  closeModal('modal-detail');
+  renderTerritoryList();
+  refreshSessionSelects();
+  renderMap();
+  setSyncState('ok');
+  showToast('Territorio eliminado');
 }
 
-// ══════════════════════════════════════════════════════════
-//  DATA OPERATIONS (local + supabase)
-// ══════════════════════════════════════════════════════════
-async function loadAllData() {
-  if (!sbClient) return;
-  const [capRes, lugRes, diasRes] = await Promise.all([
-    sbClient.from('capitanes').select('*').order('nombre'),
-    sbClient.from('lugares').select('*').order('nombre'),
-    sbClient.from('dias_plan').select('*'),
-  ]);
-  capitanes = capRes.data || [];
-  lugares = lugRes.data || [];
-  diasPlan = {};
-  (diasRes.data || []).forEach(d => { diasPlan[d.fecha] = d; });
-  renderCalendar();
+async function markTerritoryComplete() {
+  if (!selectedTerritory) return;
+  setSyncState('syncing');
+  const endDate = todayKey();
+  const { error } = await supabase.from('territories').update({ status: 'done', end_date: endDate }).eq('id', selectedTerritory.id);
+  if (error) { showToast('Error al actualizar', true); setSyncState('error'); return; }
+  const idx = territories.findIndex(t => t.id === selectedTerritory.id);
+  if (idx > -1) { territories[idx].status = 'done'; territories[idx].end_date = endDate; }
+  await addHistoryEntry('territory_done', `Territorio completado: ${selectedTerritory.name}`, selectedTerritory.id);
+  closeModal('modal-detail');
+  renderTerritoryList();
+  renderMap();
+  setSyncState('ok');
+  showToast('Territorio completado ✓');
 }
 
-// ── Capitanes ──
-async function insertCapitan(data) {
-  if (sbClient) {
-    const { data: row } = await sbClient.from('capitanes').insert(data).select().single();
-    if (row) capitanes.push(row);
+function openTerritoryDetail(id) {
+  const t = territories.find(x => x.id === id);
+  if (!t) return;
+  selectedTerritory = t;
+  document.getElementById('detail-title').textContent = t.code ? `${t.code} — ${t.name}` : t.name;
+  const sessCount = Object.keys(sessions).filter(k => k.startsWith(t.id + '_')).length;
+  document.getElementById('detail-body').innerHTML = `
+    <div style="display:grid;gap:10px;">
+      ${t.description ? `<p style="font-size:13px;color:var(--gray-600)">${t.description}</p>` : ''}
+      <div class="session-stat"><div class="session-stat-icon">📅</div><div><div class="session-stat-label">Fecha inicio</div><div class="session-stat-value">${formatDate(t.start_date) || '—'}</div></div></div>
+      ${t.end_date ? `<div class="session-stat"><div class="session-stat-icon">🏁</div><div><div class="session-stat-label">Fecha fin</div><div class="session-stat-value">${formatDate(t.end_date)}</div></div></div>` : ''}
+      <div class="session-stat"><div class="session-stat-icon">📊</div><div><div class="session-stat-label">Sesiones registradas</div><div class="session-stat-value">${sessCount}</div></div></div>
+      ${t.lat ? `<div class="session-stat"><div class="session-stat-icon">📌</div><div><div class="session-stat-label">Coordenadas</div><div class="session-stat-value" style="font-size:12px;">${t.lat.toFixed(4)}, ${t.lng.toFixed(4)}</div></div></div>` : ''}
+    </div>`;
+  openModal('modal-detail');
+  if (t.lat && map) map.setView([t.lat, t.lng], 15);
+}
+
+// ===== SESSION =====
+function refreshSessionSelects() {
+  const sel = document.getElementById('active-territory-select');
+  const prev = sel.value;
+  sel.innerHTML = '<option value="">-- Seleccionar --</option>';
+  territories.filter(t => t.status !== 'done').forEach(t => {
+    const opt = document.createElement('option');
+    opt.value = t.id; opt.textContent = (t.code ? t.code + ' — ' : '') + t.name;
+    sel.appendChild(opt);
+  });
+  if (prev) sel.value = prev;
+}
+
+function onActiveTerritoryChange() {
+  const id = document.getElementById('active-territory-select').value;
+  if (!id) { document.getElementById('session-info').style.display = 'none'; return; }
+  document.getElementById('session-info').style.display = 'block';
+  document.getElementById('today-route-card').style.display = 'block';
+  const session = sessions[`${id}_${todayKey()}`] || {};
+  document.getElementById('session-start-display').textContent = fmtCoord(session.start_lat, session.start_lng);
+  document.getElementById('session-end-display').textContent = fmtCoord(session.end_lat, session.end_lng);
+  document.getElementById('session-tomorrow-display').textContent = fmtCoord(session.tomorrow_lat, session.tomorrow_lng);
+  document.getElementById('session-notes').value = session.notes || '';
+  updateProgress(id);
+}
+
+function fmtCoord(lat, lng) {
+  if (!lat) return 'Sin marcar';
+  return `${parseFloat(lat).toFixed(5)}, ${parseFloat(lng).toFixed(5)}`;
+}
+
+function startPickPoint(type) {
+  const id = document.getElementById('active-territory-select').value;
+  if (!id) { showToast('Selecciona un territorio primero'); return; }
+  pickMode = type;
+  const labels = { start: 'inicio', end: 'fin', tomorrow: 'continuar mañana' };
+  const banner = document.getElementById('pick-mode-banner');
+  banner.style.display = 'block';
+  banner.textContent = `📌 Haz clic en el mapa para marcar el punto de ${labels[type]}…`;
+  map.getContainer().style.cursor = 'crosshair';
+}
+
+async function placeSessionPoint(type, latlng) {
+  pickMode = null;
+  map.getContainer().style.cursor = '';
+  document.getElementById('pick-mode-banner').style.display = 'none';
+  const id = document.getElementById('active-territory-select').value;
+  const today = todayKey();
+  const key = `${id}_${today}`;
+  const existing = sessions[key] || {};
+  const updates = {
+    territory_id: id,
+    session_date: today,
+    start_lat: existing.start_lat || null,
+    start_lng: existing.start_lng || null,
+    end_lat: existing.end_lat || null,
+    end_lng: existing.end_lng || null,
+    tomorrow_lat: existing.tomorrow_lat || null,
+    tomorrow_lng: existing.tomorrow_lng || null,
+    notes: existing.notes || null,
+  };
+  const colMap = { start: ['start_lat','start_lng'], end: ['end_lat','end_lng'], tomorrow: ['tomorrow_lat','tomorrow_lng'] };
+  updates[colMap[type][0]] = latlng.lat;
+  updates[colMap[type][1]] = latlng.lng;
+
+  setSyncState('syncing');
+  const { data, error } = await supabase.from('sessions').upsert(updates, { onConflict: 'territory_id,session_date' }).select().single();
+  if (error) { showToast('Error al guardar punto', true); setSyncState('error'); return; }
+  sessions[key] = data;
+
+  const t = territories.find(x => x.id === id);
+  const labels = { start: 'Inicio marcado', end: 'Fin marcado', tomorrow: 'Continuación marcada' };
+  await addHistoryEntry('session_point', `${labels[type]} en ${t ? t.name : 'territorio'}`, id);
+
+  const displayMap = { start: 'session-start-display', end: 'session-end-display', tomorrow: 'session-tomorrow-display' };
+  document.getElementById(displayMap[type]).textContent = fmtCoord(latlng.lat, latlng.lng);
+  renderMap();
+  updateProgress(id);
+  setSyncState('ok');
+  showToast('Punto guardado en Supabase ✓');
+}
+
+async function saveSessionNotes() {
+  const id = document.getElementById('active-territory-select').value;
+  if (!id) return;
+  const today = todayKey();
+  const key = `${id}_${today}`;
+  const existing = sessions[key] || {};
+  const notes = document.getElementById('session-notes').value;
+  setSyncState('syncing');
+  const payload = { territory_id: id, session_date: today, notes, ...existing };
+  const { data, error } = await supabase.from('sessions').upsert(payload, { onConflict: 'territory_id,session_date' }).select().single();
+  if (error) { showToast('Error al guardar notas', true); setSyncState('error'); return; }
+  sessions[key] = data;
+  setSyncState('ok');
+  showToast('Notas guardadas ✓');
+}
+
+function showTodayRoute() {
+  const id = document.getElementById('active-territory-select').value;
+  if (!id) return;
+  const session = sessions[`${id}_${todayKey()}`];
+  if (!session) { showToast('No hay puntos marcados hoy'); return; }
+  const pts = [];
+  if (session.start_lat) pts.push([session.start_lat, session.start_lng]);
+  if (session.end_lat) pts.push([session.end_lat, session.end_lng]);
+  if (session.tomorrow_lat) pts.push([session.tomorrow_lat, session.tomorrow_lng]);
+  if (pts.length < 2) { showToast('Marca al menos 2 puntos para ver la ruta'); return; }
+  renderMap();
+  const line = L.polyline(pts, { color: '#1D9E75', weight: 3, dashArray: '6 4' }).addTo(map);
+  routeLines.push(line);
+  map.fitBounds(line.getBounds(), { padding: [40, 40] });
+}
+
+function updateProgress(id) {
+  const count = Object.keys(sessions).filter(k => k.startsWith(id + '_')).length;
+  const pct = Math.min(count * 10, 100);
+  document.getElementById('progress-fill').style.width = pct + '%';
+  document.getElementById('progress-pct').textContent = `${count} sesión${count !== 1 ? 'es' : ''}`;
+}
+
+// ===== HISTORY =====
+async function addHistoryEntry(type, message, territoryId) {
+  const { data } = await supabase.from('history').insert({ type, message, territory_id: territoryId }).select().single();
+  if (data) historyRows.unshift(data);
+}
+
+function renderHistory() {
+  const log = document.getElementById('history-log');
+  if (historyRows.length === 0) {
+    log.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📅</div><p>El historial aparecerá aquí conforme registres actividad.</p></div>`;
   } else {
-    capitanes.push({ id: uid(), ...data });
+    const colors = { territory_created: '#1D9E75', territory_done: '#185FA5', session_point: '#BA7517' };
+    log.innerHTML = historyRows.slice(0, 60).map(h => `
+      <div class="log-item">
+        <div class="log-dot" style="background:${colors[h.type]||'#888'}"></div>
+        <div><div class="log-text">${h.message}</div><div class="log-date">${formatDateTime(h.created_at)}</div></div>
+      </div>`).join('');
   }
+  const done = territories.filter(t => t.status === 'done');
+  document.getElementById('completed-list').innerHTML = done.length === 0
+    ? `<p style="font-size:12px;color:var(--gray-600);">Ninguno completado aún.</p>`
+    : done.map(t => `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--gray-100);font-size:13px;"><span>✅ ${t.name}</span><span style="font-size:11px;color:var(--gray-600)">${formatDate(t.end_date)}</span></div>`).join('');
 }
-async function updateCapitan(id, data) {
-  if (sbClient) {
-    await sbClient.from('capitanes').update(data).eq('id', id);
+
+// ===== RENDER LIST =====
+function renderTerritoryList() {
+  const container = document.getElementById('territory-list-container');
+  if (territories.length === 0) {
+    container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">🗺️</div><p>Aún no hay territorios.<br>Crea el primero para comenzar.</p></div>`;
+    return;
   }
-  const i = capitanes.findIndex(c => c.id === id);
-  if (i > -1) capitanes[i] = { ...capitanes[i], ...data };
-}
-async function removeCapitan(id) {
-  if (sbClient) await sbClient.from('capitanes').delete().eq('id', id);
-  capitanes = capitanes.filter(c => c.id !== id);
-}
-
-// ── Lugares ──
-async function insertLugar(data) {
-  if (sbClient) {
-    const { data: row } = await sbClient.from('lugares').insert(data).select().single();
-    if (row) lugares.push(row);
-  } else {
-    lugares.push({ id: uid(), ...data });
-  }
-}
-async function updateLugar(id, data) {
-  if (sbClient) await sbClient.from('lugares').update(data).eq('id', id);
-  const i = lugares.findIndex(l => l.id === id);
-  if (i > -1) lugares[i] = { ...lugares[i], ...data };
-}
-async function removeLugar(id) {
-  if (sbClient) await sbClient.from('lugares').delete().eq('id', id);
-  lugares = lugares.filter(l => l.id !== id);
+  container.innerHTML = `<div class="card" style="padding:0 14px;">${
+    territories.map((t, i) => `
+      <div class="territory-item" onclick="openTerritoryDetail('${t.id}')">
+        <div class="t-badge ${BADGE_COLORS[i % BADGE_COLORS.length]}">${(t.code || t.name).substring(0,2).toUpperCase()}</div>
+        <div class="t-info">
+          <div class="t-name">${t.name}${t.code ? ` <span style="color:var(--gray-600);font-size:11px;">${t.code}</span>` : ''}</div>
+          <div class="t-date">Desde: ${formatDate(t.start_date)||'Sin fecha'}${t.end_date ? ` · Fin: ${formatDate(t.end_date)}`  :''}</div>
+        </div>
+        <div class="t-status ${t.status==='done'?'status-done':'status-active'}">${t.status==='done'?'Completado':'Activo'}</div>
+      </div>`).join('')
+  }</div>`;
 }
 
-// ── Días ──
-async function upsertDia(data) {
-  if (sbClient) {
-    await sbClient.from('dias_plan').upsert(data, { onConflict: 'fecha' });
-  }
-  diasPlan[data.fecha] = { ...diasPlan[data.fecha], ...data };
+// ===== TABS =====
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  const tabs = ['territorios','sesion','historial'];
+  document.querySelectorAll('.tab')[tabs.indexOf(tab)].classList.add('active');
+  document.getElementById('panel-' + tab).classList.add('active');
+  if (tab === 'sesion') refreshSessionSelects();
+  if (tab === 'historial') renderHistory();
 }
 
-function to12h(timeStr) {
-  // timeStr is 'HH:MM' or 'HH:MM:SS'
-  var parts = timeStr.slice(0,5).split(':');
-  var h = parseInt(parts[0], 10);
-  var m = parts[1];
-  var ampm = h >= 12 ? 'pm' : 'am';
-  h = h % 12 || 12;
-  return h + ':' + m + ' ' + ampm;
+// ===== HELPERS =====
+function todayKey() { return new Date().toISOString().split('T')[0]; }
+function formatDate(d) { if (!d) return ''; const p = d.split('-'); return `${p[2]}/${p[1]}/${p[0]}`; }
+function formatDateTime(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return d.toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'}) + ' ' + d.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
+}
+function setLoading(msg) { document.getElementById('loading-overlay').classList.remove('hidden'); document.getElementById('loading-msg').textContent = msg; }
+function hideLoading() { document.getElementById('loading-overlay').classList.add('hidden'); }
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function setSyncState(state) {
+  const dot = document.getElementById('sync-dot');
+  dot.className = 'sync-dot' + (state === 'syncing' ? ' syncing' : state === 'error' ? ' error' : '');
+}
+function showToast(msg, isError) {
+  const t = document.getElementById('toast');
+  t.textContent = (isError ? '⚠️ ' : '✓ ') + msg;
+  t.className = 'toast' + (isError ? ' error' : '') + ' show';
+  setTimeout(() => { t.className = 'toast' + (isError ? ' error' : ''); }, 3000);
 }
 
-function uid() {
-  return 'local-' + Math.random().toString(36).slice(2, 10);
-}
-
-function showStatus(msg, type) {
-  var bar = document.getElementById('statusBar');
-  bar.textContent = msg;
-  bar.className = 'status-bar show' + (type ? ' ' + type : '');
-  clearTimeout(statusTimer);
-  statusTimer = setTimeout(function() { bar.classList.remove('show'); }, 3000);
-}
+document.addEventListener('DOMContentLoaded', init);
 </script>
 </body>
 </html>
