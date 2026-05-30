@@ -292,6 +292,7 @@
 <div class="toast" id="toast"></div>
 
 <script>
+(function() {
 // ===== SUPABASE CONFIG =====
 const SUPABASE_URL = 'https://pbcyeeqkdudlnqghgwmb.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBiY3llZXFrZHVkbG5xZ2hnd21iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAxMzgwNjksImV4cCI6MjA5NTcxNDA2OX0.HUWjTRPmRAcgcGG-YiCnqVRQlVQlTVX_Q_O6OaCTLjk';
@@ -798,6 +799,7 @@ function showToast(msg, isError) {
 }
 
 document.addEventListener('DOMContentLoaded', init);
+})();
 </script>
 </body>
 </html>
