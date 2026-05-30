@@ -1,1 +1,1210 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plan de Predicación</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --bg: #f5f2ec;
+    --surface: #ffffff;
+    --surface2: #f0ece3;
+    --border: #ddd8cc;
+    --text: #1a1714;
+    --text2: #6b6560;
+    --accent: #2d5a3d;
+    --accent-light: #e8f0ea;
+    --accent2: #c4853a;
+    --danger: #c0392b;
+    --danger-light: #fdf0ee;
+    --shadow: 0 2px 12px rgba(0,0,0,0.07);
+    --shadow-lg: 0 8px 32px rgba(0,0,0,0.12);
+    --radius: 12px;
+    --radius-sm: 8px;
+    --font-display: 'DM Serif Display', serif;
+    --font-body: 'DM Sans', sans-serif;
+    --transition: 0.2s ease;
+  }
+  [data-theme="dark"] {
+    --bg: #141210;
+    --surface: #1e1b18;
+    --surface2: #252219;
+    --border: #2e2a24;
+    --text: #f0ece3;
+    --text2: #8a8278;
+    --accent: #4a8c5c;
+    --accent-light: #1a2e20;
+    --accent2: #d4943a;
+    --danger: #e05040;
+    --danger-light: #2a1a18;
+    --shadow: 0 2px 12px rgba(0,0,0,0.3);
+    --shadow-lg: 0 8px 32px rgba(0,0,0,0.4);
+  }
 
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: var(--font-body);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    transition: background var(--transition), color var(--transition);
+  }
+
+  /* ── APP SHELL ── */
+  .app-header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    height: 60px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: var(--shadow);
+  }
+  .app-logo {
+    font-family: var(--font-display);
+    font-size: 1.3rem;
+    color: var(--accent);
+    white-space: nowrap;
+  }
+  .app-logo span { color: var(--accent2); font-style: italic; }
+  .app-nav {
+    display: flex;
+    gap: 2px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 3px;
+    margin-left: auto;
+  }
+  .nav-btn {
+    padding: 6px 14px;
+    border: none;
+    background: transparent;
+    border-radius: var(--radius-sm);
+    font-family: var(--font-body);
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--text2);
+    cursor: pointer;
+    transition: all var(--transition);
+    white-space: nowrap;
+  }
+  .nav-btn.active {
+    background: var(--surface);
+    color: var(--accent);
+    box-shadow: var(--shadow);
+  }
+  .nav-btn:hover:not(.active) { color: var(--text); background: var(--border); }
+
+  .app-body { max-width: 1100px; margin: 0 auto; padding: 28px 20px; }
+
+  /* ── TABS ── */
+  .tab-panel { display: none; animation: fadeIn 0.2s ease; }
+  .tab-panel.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+  /* ── CALENDAR ── */
+  .cal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+  }
+  .cal-title {
+    font-family: var(--font-display);
+    font-size: 1.8rem;
+    color: var(--text);
+    text-transform: capitalize;
+  }
+  .cal-nav { display: flex; gap: 8px; align-items: center; }
+  .cal-nav button {
+    width: 36px; height: 36px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 1rem;
+    color: var(--text2);
+    transition: all var(--transition);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .cal-nav button:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+  .cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+  }
+  .cal-dow {
+    text-align: center;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text2);
+    padding: 6px 0;
+  }
+  .cal-day {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    min-height: 100px;
+    padding: 8px;
+    cursor: pointer;
+    transition: all var(--transition);
+    position: relative;
+    overflow: hidden;
+  }
+  .cal-day:hover { border-color: var(--accent); box-shadow: var(--shadow); transform: translateY(-1px); }
+  .cal-day.empty { background: transparent; border-color: transparent; cursor: default; }
+  .cal-day.empty:hover { transform: none; box-shadow: none; }
+  .cal-day.no-pred { opacity: 0.45; }
+  .cal-day.today { border-color: var(--accent2); }
+  .cal-day.today .day-num { color: var(--accent2); font-weight: 700; }
+  .day-num {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text2);
+    margin-bottom: 4px;
+  }
+  .day-lugar {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--accent);
+    margin-bottom: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .day-turno {
+    font-size: 0.65rem;
+    color: var(--text2);
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    margin-bottom: 1px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .day-turno .hora { color: var(--accent2); font-weight: 600; }
+  .day-turno .sep { color: var(--border); }
+  .no-pred-badge {
+    font-size: 0.6rem;
+    color: var(--text2);
+    font-style: italic;
+    margin-top: 4px;
+  }
+  .has-data-dot {
+    position: absolute;
+    top: 6px; right: 6px;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+
+  /* ── MODAL ── */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.45);
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+  }
+  .modal-overlay.open { opacity: 1; pointer-events: all; }
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px;
+    width: 100%;
+    max-width: 480px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: var(--shadow-lg);
+    transform: translateY(12px);
+    transition: transform 0.2s ease;
+  }
+  .modal-overlay.open .modal { transform: none; }
+  .modal-title {
+    font-family: var(--font-display);
+    font-size: 1.3rem;
+    color: var(--text);
+    margin-bottom: 20px;
+  }
+  .modal-close {
+    float: right;
+    background: none;
+    border: none;
+    font-size: 1.3rem;
+    cursor: pointer;
+    color: var(--text2);
+    line-height: 1;
+    padding: 2px 6px;
+    border-radius: 6px;
+  }
+  .modal-close:hover { background: var(--surface2); }
+
+  /* ── FORM ── */
+  .form-group { margin-bottom: 14px; }
+  .form-label {
+    display: block;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text2);
+    margin-bottom: 5px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .form-input, .form-select {
+    width: 100%;
+    padding: 9px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface2);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 0.9rem;
+    transition: border-color var(--transition);
+    outline: none;
+  }
+  .form-input:focus, .form-select:focus { border-color: var(--accent); }
+  .form-select option { background: var(--surface); }
+
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-top: 1px solid var(--border);
+    margin-top: 4px;
+  }
+  .toggle-label { font-size: 0.88rem; font-weight: 500; }
+  .toggle {
+    width: 44px; height: 24px;
+    background: var(--border);
+    border-radius: 12px;
+    position: relative;
+    cursor: pointer;
+    border: none;
+    transition: background var(--transition);
+  }
+  .toggle.on { background: var(--accent); }
+  .toggle::after {
+    content: '';
+    position: absolute;
+    top: 3px; left: 3px;
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: #fff;
+    transition: left var(--transition);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+  }
+  .toggle.on::after { left: 23px; }
+
+  .copy-dates { margin-top: 16px; border-top: 1px solid var(--border); padding-top: 14px; }
+  .copy-dates-title { font-size: 0.78rem; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
+  .copy-dates-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 5px;
+    max-height: 160px;
+    overflow-y: auto;
+  }
+  .copy-date-btn {
+    padding: 5px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface2);
+    color: var(--text);
+    font-size: 0.72rem;
+    cursor: pointer;
+    text-align: center;
+    transition: all var(--transition);
+  }
+  .copy-date-btn.selected { background: var(--accent-light); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+  .copy-date-btn:hover:not(.selected) { border-color: var(--accent); }
+
+  /* ── BUTTONS ── */
+  .btn {
+    padding: 9px 18px;
+    border-radius: var(--radius-sm);
+    border: none;
+    font-family: var(--font-body);
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition);
+  }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { filter: brightness(1.1); }
+  .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-danger { background: var(--danger-light); color: var(--danger); border: 1px solid var(--danger); }
+  .btn-danger:hover { background: var(--danger); color: #fff; }
+  .btn-sm { padding: 5px 12px; font-size: 0.8rem; }
+  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; flex-wrap: wrap; }
+
+  /* ── DATA TABLES (Capitanes / Lugares) ── */
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .section-title { font-family: var(--font-display); font-size: 1.4rem; }
+
+  .data-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+  }
+  .data-table th {
+    background: var(--surface2);
+    padding: 10px 14px;
+    text-align: left;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text2);
+    border-bottom: 1px solid var(--border);
+  }
+  .data-table td {
+    padding: 10px 14px;
+    font-size: 0.88rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+  }
+  .data-table tr:last-child td { border-bottom: none; }
+  .data-table tr:hover td { background: var(--surface2); }
+  .td-actions { display: flex; gap: 6px; }
+  .tag {
+    display: inline-block;
+    padding: 3px 9px;
+    border-radius: 20px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    background: var(--accent-light);
+    color: var(--accent);
+  }
+
+  /* ── SETTINGS ── */
+  .settings-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    box-shadow: var(--shadow);
+    margin-bottom: 16px;
+  }
+  .settings-card-title {
+    font-family: var(--font-display);
+    font-size: 1.1rem;
+    margin-bottom: 16px;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .theme-grid { display: flex; gap: 10px; flex-wrap: wrap; }
+  .theme-option {
+    flex: 1;
+    min-width: 120px;
+    padding: 14px;
+    border: 2px solid var(--border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all var(--transition);
+    text-align: center;
+    background: var(--surface2);
+  }
+  .theme-option:hover { border-color: var(--accent); }
+  .theme-option.active { border-color: var(--accent); background: var(--accent-light); }
+  .theme-icon { font-size: 1.6rem; margin-bottom: 6px; }
+  .theme-name { font-size: 0.82rem; font-weight: 600; }
+
+  /* ── STATUS ── */
+  .status-bar {
+    position: fixed;
+    bottom: 16px; right: 16px;
+    background: var(--text);
+    color: var(--bg);
+    padding: 10px 16px;
+    border-radius: var(--radius);
+    font-size: 0.82rem;
+    font-weight: 500;
+    box-shadow: var(--shadow-lg);
+    z-index: 300;
+    transform: translateY(80px);
+    transition: transform 0.3s ease;
+    max-width: 280px;
+  }
+  .status-bar.show { transform: none; }
+  .status-bar.success { background: var(--accent); }
+  .status-bar.error { background: var(--danger); color: #fff; }
+
+  .empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text2);
+  }
+  .empty-state .icon { font-size: 2.5rem; margin-bottom: 10px; }
+  .empty-state p { font-size: 0.9rem; }
+
+  .conn-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.78rem;
+    font-weight: 500;
+    padding: 5px 10px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    margin-left: auto;
+  }
+  .conn-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--border); }
+  .conn-dot.connected { background: #27ae60; }
+  .conn-dot.error { background: var(--danger); }
+
+  .supabase-note {
+    background: var(--accent-light);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius-sm);
+    padding: 12px 14px;
+    font-size: 0.82rem;
+    color: var(--accent);
+    margin-top: 14px;
+    line-height: 1.5;
+  }
+  .supabase-note code {
+    background: rgba(0,0,0,0.08);
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-size: 0.78rem;
+  }
+  pre.sql-block {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 14px;
+    font-size: 0.75rem;
+    overflow-x: auto;
+    margin-top: 10px;
+    color: var(--text);
+    white-space: pre;
+    line-height: 1.6;
+  }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 700px) {
+    .app-header { padding: 0 12px; gap: 10px; }
+    .app-logo { font-size: 1rem; }
+    .nav-btn { padding: 5px 8px; font-size: 0.75rem; }
+    .app-body { padding: 16px 10px; }
+    .cal-day { min-height: 70px; padding: 5px; }
+    .cal-dow { font-size: 0.62rem; }
+    .day-turno, .day-lugar { font-size: 0.58rem; }
+    .modal { padding: 18px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="app-header">
+  <div class="app-logo">Plan de <span>Predicación</span></div>
+  <div class="conn-status" id="connStatus">
+    <div class="conn-dot" id="connDot"></div>
+    <span id="connText">Sin conexión</span>
+  </div>
+  <nav class="app-nav">
+    <button class="nav-btn active" onclick="showTab('calendario')">📅 Calendario</button>
+    <button class="nav-btn" onclick="showTab('datos')">👥 Datos</button>
+    <button class="nav-btn" onclick="showTab('estilo')">🎨 Estilo</button>
+    <button class="nav-btn" onclick="showTab('config')">⚙️ Config</button>
+  </nav>
+</header>
+
+<main class="app-body">
+
+  <!-- ═══ TAB: CALENDARIO ═══ -->
+  <div id="tab-calendario" class="tab-panel active">
+    <div class="cal-header">
+      <div class="cal-title" id="calTitle">—</div>
+      <div class="cal-nav">
+        <button onclick="changeMonth(-1)" title="Mes anterior">&#8592;</button>
+        <button onclick="goToday()" title="Hoy" style="font-size:0.75rem;width:auto;padding:0 10px;">Hoy</button>
+        <button onclick="changeMonth(1)" title="Mes siguiente">&#8594;</button>
+      </div>
+    </div>
+    <div class="cal-grid" id="calGrid"></div>
+  </div>
+
+  <!-- ═══ TAB: DATOS ═══ -->
+  <div id="tab-datos" class="tab-panel">
+    <div style="display:grid;gap:32px;">
+
+      <!-- Capitanes -->
+      <div>
+        <div class="section-header">
+          <div class="section-title">Capitanes</div>
+          <button class="btn btn-primary btn-sm" onclick="openCapitanModal()">+ Añadir</button>
+        </div>
+        <table class="data-table" id="capitanesTable">
+          <thead><tr><th>Nombre</th><th>Teléfono</th><th>Acciones</th></tr></thead>
+          <tbody id="capitanesTbody"></tbody>
+        </table>
+      </div>
+
+      <!-- Lugares -->
+      <div>
+        <div class="section-header">
+          <div class="section-title">Lugares de Encuentro</div>
+          <button class="btn btn-primary btn-sm" onclick="openLugarModal()">+ Añadir</button>
+        </div>
+        <table class="data-table" id="lugaresTable">
+          <thead><tr><th>Nombre</th><th>Dirección</th><th>Acciones</th></tr></thead>
+          <tbody id="lugaresTbody"></tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ═══ TAB: ESTILO ═══ -->
+  <div id="tab-estilo" class="tab-panel">
+    <div class="settings-card">
+      <div class="settings-card-title">🎨 Tema Visual</div>
+      <div class="theme-grid">
+        <div class="theme-option active" id="theme-light" onclick="setTheme('light')">
+          <div class="theme-icon">☀️</div>
+          <div class="theme-name">Claro</div>
+        </div>
+        <div class="theme-option" id="theme-dark" onclick="setTheme('dark')">
+          <div class="theme-icon">🌙</div>
+          <div class="theme-name">Oscuro</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ TAB: CONFIG ═══ -->
+  <div id="tab-config" class="tab-panel">
+    <div class="settings-card">
+      <div class="settings-card-title">🗄️ Conexión Supabase</div>
+      <div class="form-group">
+        <label class="form-label">Project URL</label>
+        <input class="form-input" id="cfgUrl" type="text" placeholder="https://xxxx.supabase.co" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Publishable (anon) Key</label>
+        <input class="form-input" id="cfgKey" type="password" placeholder="eyJhbGci..." autocomplete="off">
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-primary" onclick="saveConfig()">Guardar y Conectar</button>
+        <button class="btn btn-secondary" onclick="clearConfig()">Limpiar</button>
+      </div>
+
+      <div class="supabase-note" style="margin-top:16px;">
+        <strong>💡 Las credenciales se guardan cifradas en localStorage.</strong><br>
+        Ejecuta este SQL en el editor de Supabase para crear las tablas:
+      </div>
+
+      <pre class="sql-block">-- Capitanes
+CREATE TABLE capitanes (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  nombre text NOT NULL,
+  telefono text,
+  created_at timestamptz DEFAULT now()
+);
+
+-- Lugares de encuentro
+CREATE TABLE lugares (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  nombre text NOT NULL,
+  direccion text,
+  created_at timestamptz DEFAULT now()
+);
+
+-- Días del plan
+CREATE TABLE dias_plan (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  fecha date NOT NULL UNIQUE,
+  lugar_id uuid REFERENCES lugares(id) ON DELETE SET NULL,
+  hora_manana time,
+  capitan_manana_id uuid REFERENCES capitanes(id) ON DELETE SET NULL,
+  hora_tarde time,
+  capitan_tarde_id uuid REFERENCES capitanes(id) ON DELETE SET NULL,
+  tiene_predicacion boolean DEFAULT true,
+  created_at timestamptz DEFAULT now()
+);
+
+-- RLS: habilitar y crear políticas según tus necesidades
+ALTER TABLE capitanes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE lugares ENABLE ROW LEVEL SECURITY;
+ALTER TABLE dias_plan ENABLE ROW LEVEL SECURITY;
+
+-- Política pública de lectura/escritura (ajusta según autenticación)
+CREATE POLICY "allow_all" ON capitanes FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "allow_all" ON lugares FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "allow_all" ON dias_plan FOR ALL USING (true) WITH CHECK (true);</pre>
+    </div>
+  </div>
+
+</main>
+
+<!-- ═══ MODAL: DÍA ═══ -->
+<div class="modal-overlay" id="dayModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeDayModal()">✕</button>
+    <div class="modal-title" id="dayModalTitle">Día —</div>
+
+    <div class="toggle-row">
+      <span class="toggle-label">Hay predicación este día</span>
+      <button class="toggle on" id="tienePred" onclick="togglePred()"></button>
+    </div>
+
+    <div id="dayForm">
+      <div class="form-group" style="margin-top:14px;">
+        <label class="form-label">Lugar de Encuentro</label>
+        <select class="form-select" id="dLugar"></select>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div class="form-group">
+          <label class="form-label">Hora Mañana</label>
+          <input class="form-input" id="dHoraMa" type="time" value="08:00">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Capitán Mañana</label>
+          <select class="form-select" id="dCapMa"></select>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div class="form-group">
+          <label class="form-label">Hora Tarde</label>
+          <input class="form-input" id="dHoraTa" type="time" value="14:00">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Capitán Tarde</label>
+          <select class="form-select" id="dCapTa"></select>
+        </div>
+      </div>
+
+      <div class="copy-dates">
+        <div class="copy-dates-title">📋 Copiar lugar y horarios en otras fechas</div>
+        <div class="copy-dates-grid" id="copyDatesGrid"></div>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeDayModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveDayModal()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL: CAPITÁN ═══ -->
+<div class="modal-overlay" id="capitanModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeCapitanModal()">✕</button>
+    <div class="modal-title" id="capitanModalTitle">Capitán</div>
+    <div class="form-group">
+      <label class="form-label">Nombre completo</label>
+      <input class="form-input" id="cNombre" type="text" placeholder="Nombre del capitán">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Teléfono (opcional)</label>
+      <input class="form-input" id="cTelefono" type="tel" placeholder="+52 …">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeCapitanModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveCapitan()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL: LUGAR ═══ -->
+<div class="modal-overlay" id="lugarModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeLugarModal()">✕</button>
+    <div class="modal-title" id="lugarModalTitle">Lugar de Encuentro</div>
+    <div class="form-group">
+      <label class="form-label">Nombre del lugar</label>
+      <input class="form-input" id="lNombre" type="text" placeholder="Ej: Salón del Reino">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Dirección (opcional)</label>
+      <input class="form-input" id="lDireccion" type="text" placeholder="Calle, número...">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeLugarModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveLugar()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- STATUS BAR -->
+<div class="status-bar" id="statusBar"></div>
+
+<script>
+// ══════════════════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════════════════
+let supabase = null;
+let capitanes = [];
+let lugares = [];
+let diasPlan = {}; // keyed by 'YYYY-MM-DD'
+let currentYear, currentMonth;
+let editingCapitanId = null;
+let editingLugarId = null;
+let editingDayDate = null;
+let copyDates = new Set();
+
+const CIPHER_KEY = 'pred-plan-v1';
+
+// ══════════════════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════════════════
+(async function init() {
+  const today = new Date();
+  currentYear = today.getFullYear();
+  currentMonth = today.getMonth();
+  loadTheme();
+  await loadConfig();
+  renderCalendar();
+})();
+
+// ══════════════════════════════════════════════════════════
+//  TABS
+// ══════════════════════════════════════════════════════════
+function showTab(name) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  event.currentTarget.classList.add('active');
+  if (name === 'datos') { renderCapitanes(); renderLugares(); }
+}
+
+// ══════════════════════════════════════════════════════════
+//  CALENDAR
+// ══════════════════════════════════════════════════════════
+function renderCalendar() {
+  const title = document.getElementById('calTitle');
+  const grid = document.getElementById('calGrid');
+  const date = new Date(currentYear, currentMonth, 1);
+  title.textContent = date.toLocaleDateString('es-MX', { month: 'long', year: 'numeric' });
+
+  const dows = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+  let html = dows.map(d => `<div class="cal-dow">${d}</div>`).join('');
+
+  const firstDow = date.getDay();
+  for (let i = 0; i < firstDow; i++) html += '<div class="cal-day empty"></div>';
+
+  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+  const today = new Date();
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const plan = diasPlan[dateStr];
+    const isToday = (d === today.getDate() && currentMonth === today.getMonth() && currentYear === today.getFullYear());
+    const noPred = plan && plan.tiene_predicacion === false;
+    let cls = 'cal-day' + (isToday ? ' today' : '') + (noPred ? ' no-pred' : '');
+
+    let inner = `<div class="day-num">${d}</div>`;
+    if (plan) {
+      inner += `<div class="has-data-dot"></div>`;
+      const lugar = lugares.find(l => l.id === plan.lugar_id);
+      if (lugar) inner += `<div class="day-lugar">${lugar.nombre}</div>`;
+      if (!noPred) {
+        if (plan.hora_manana) {
+          const cap = capitanes.find(c => c.id === plan.capitan_manana_id);
+          inner += `<div class="day-turno"><span class="hora">${plan.hora_manana.slice(0,5)}</span><span class="sep">›</span>${cap ? cap.nombre.split(' ')[0] : '—'}</div>`;
+        }
+        if (plan.hora_tarde) {
+          const cap = capitanes.find(c => c.id === plan.capitan_tarde_id);
+          inner += `<div class="day-turno"><span class="hora">${plan.hora_tarde.slice(0,5)}</span><span class="sep">›</span>${cap ? cap.nombre.split(' ')[0] : '—'}</div>`;
+        }
+      } else {
+        inner += `<div class="no-pred-badge">Sin predicación</div>`;
+      }
+    }
+
+    html += `<div class="${cls}" onclick="openDayModal('${dateStr}')">${inner}</div>`;
+  }
+
+  grid.innerHTML = html;
+}
+
+function changeMonth(delta) {
+  currentMonth += delta;
+  if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+  if (currentMonth < 0) { currentMonth = 11; currentYear--; }
+  renderCalendar();
+}
+function goToday() {
+  const t = new Date();
+  currentYear = t.getFullYear();
+  currentMonth = t.getMonth();
+  renderCalendar();
+}
+
+// ══════════════════════════════════════════════════════════
+//  DAY MODAL
+// ══════════════════════════════════════════════════════════
+function openDayModal(dateStr) {
+  editingDayDate = dateStr;
+  copyDates = new Set();
+  const plan = diasPlan[dateStr] || {};
+  const d = new Date(dateStr + 'T12:00:00');
+  document.getElementById('dayModalTitle').textContent = d.toLocaleDateString('es-MX', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+
+  const tienePred = plan.tiene_predicacion !== false;
+  const tog = document.getElementById('tienePred');
+  tog.className = 'toggle' + (tienePred ? ' on' : '');
+  document.getElementById('dayForm').style.display = tienePred ? '' : 'none';
+
+  // Lugares
+  const dLugar = document.getElementById('dLugar');
+  dLugar.innerHTML = '<option value="">— Seleccionar —</option>' + lugares.map(l => `<option value="${l.id}" ${plan.lugar_id===l.id?'selected':''}>${l.nombre}</option>`).join('');
+
+  // Capitanes
+  const capOpts = '<option value="">— Ninguno —</option>' + capitanes.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
+  document.getElementById('dCapMa').innerHTML = capOpts;
+  document.getElementById('dCapTa').innerHTML = capOpts;
+  if (plan.capitan_manana_id) document.getElementById('dCapMa').value = plan.capitan_manana_id;
+  if (plan.capitan_tarde_id) document.getElementById('dCapTa').value = plan.capitan_tarde_id;
+
+  document.getElementById('dHoraMa').value = plan.hora_manana ? plan.hora_manana.slice(0,5) : '08:00';
+  document.getElementById('dHoraTa').value = plan.hora_tarde ? plan.hora_tarde.slice(0,5) : '14:00';
+
+  // Copy dates grid
+  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+  let copyHtml = '';
+  for (let dd = 1; dd <= daysInMonth; dd++) {
+    const ds = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-${String(dd).padStart(2,'0')}`;
+    if (ds === dateStr) continue;
+    copyHtml += `<button class="copy-date-btn" id="copy-${ds}" onclick="toggleCopyDate('${ds}')">${dd}</button>`;
+  }
+  document.getElementById('copyDatesGrid').innerHTML = copyHtml;
+
+  document.getElementById('dayModal').classList.add('open');
+}
+function closeDayModal() { document.getElementById('dayModal').classList.remove('open'); }
+
+function togglePred() {
+  const tog = document.getElementById('tienePred');
+  const on = tog.classList.toggle('on');
+  document.getElementById('dayForm').style.display = on ? '' : 'none';
+}
+
+function toggleCopyDate(ds) {
+  const btn = document.getElementById('copy-' + ds);
+  if (copyDates.has(ds)) { copyDates.delete(ds); btn.classList.remove('selected'); }
+  else { copyDates.add(ds); btn.classList.add('selected'); }
+}
+
+async function saveDayModal() {
+  const tienePred = document.getElementById('tienePred').classList.contains('on');
+  const data = {
+    fecha: editingDayDate,
+    tiene_predicacion: tienePred,
+    lugar_id: document.getElementById('dLugar').value || null,
+    hora_manana: tienePred ? (document.getElementById('dHoraMa').value || null) : null,
+    capitan_manana_id: tienePred ? (document.getElementById('dCapMa').value || null) : null,
+    hora_tarde: tienePred ? (document.getElementById('dHoraTa').value || null) : null,
+    capitan_tarde_id: tienePred ? (document.getElementById('dCapTa').value || null) : null,
+  };
+  await upsertDia(data);
+
+  // Copy: only copy lugar + horarios, NOT captains
+  for (const ds of copyDates) {
+    const copy = { ...data, fecha: ds };
+    // Keep existing captains for copied dates
+    const existing = diasPlan[ds] || {};
+    copy.capitan_manana_id = existing.capitan_manana_id || null;
+    copy.capitan_tarde_id = existing.capitan_tarde_id || null;
+    await upsertDia(copy);
+  }
+
+  closeDayModal();
+  renderCalendar();
+  showStatus('Día guardado', 'success');
+}
+
+// ══════════════════════════════════════════════════════════
+//  CAPITANES
+// ══════════════════════════════════════════════════════════
+function renderCapitanes() {
+  const tbody = document.getElementById('capitanesTbody');
+  if (!capitanes.length) {
+    tbody.innerHTML = `<tr><td colspan="3"><div class="empty-state"><div class="icon">👤</div><p>No hay capitanes aún</p></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = capitanes.map(c => `
+    <tr>
+      <td>${c.nombre}</td>
+      <td>${c.telefono || '<span style="color:var(--text2)">—</span>'}</td>
+      <td><div class="td-actions">
+        <button class="btn btn-secondary btn-sm" onclick="openCapitanModal('${c.id}')">Editar</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteCapitan('${c.id}')">Eliminar</button>
+      </div></td>
+    </tr>`).join('');
+}
+
+function openCapitanModal(id) {
+  editingCapitanId = id || null;
+  const c = id ? capitanes.find(x => x.id === id) : null;
+  document.getElementById('capitanModalTitle').textContent = id ? 'Editar Capitán' : 'Nuevo Capitán';
+  document.getElementById('cNombre').value = c ? c.nombre : '';
+  document.getElementById('cTelefono').value = c ? (c.telefono || '') : '';
+  document.getElementById('capitanModal').classList.add('open');
+}
+function closeCapitanModal() { document.getElementById('capitanModal').classList.remove('open'); }
+
+async function saveCapitan() {
+  const nombre = document.getElementById('cNombre').value.trim();
+  if (!nombre) { showStatus('El nombre es obligatorio', 'error'); return; }
+  const telefono = document.getElementById('cTelefono').value.trim() || null;
+  if (editingCapitanId) {
+    await updateCapitan(editingCapitanId, { nombre, telefono });
+  } else {
+    await insertCapitan({ nombre, telefono });
+  }
+  closeCapitanModal();
+  renderCapitanes();
+  showStatus('Capitán guardado', 'success');
+}
+
+async function deleteCapitan(id) {
+  if (!confirm('¿Eliminar este capitán?')) return;
+  await removeCapitan(id);
+  renderCapitanes();
+  renderCalendar();
+  showStatus('Capitán eliminado');
+}
+
+// ══════════════════════════════════════════════════════════
+//  LUGARES
+// ══════════════════════════════════════════════════════════
+function renderLugares() {
+  const tbody = document.getElementById('lugaresTbody');
+  if (!lugares.length) {
+    tbody.innerHTML = `<tr><td colspan="3"><div class="empty-state"><div class="icon">📍</div><p>No hay lugares aún</p></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = lugares.map(l => `
+    <tr>
+      <td>${l.nombre}</td>
+      <td>${l.direccion || '<span style="color:var(--text2)">—</span>'}</td>
+      <td><div class="td-actions">
+        <button class="btn btn-secondary btn-sm" onclick="openLugarModal('${l.id}')">Editar</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteLugar('${l.id}')">Eliminar</button>
+      </div></td>
+    </tr>`).join('');
+}
+
+function openLugarModal(id) {
+  editingLugarId = id || null;
+  const l = id ? lugares.find(x => x.id === id) : null;
+  document.getElementById('lugarModalTitle').textContent = id ? 'Editar Lugar' : 'Nuevo Lugar';
+  document.getElementById('lNombre').value = l ? l.nombre : '';
+  document.getElementById('lDireccion').value = l ? (l.direccion || '') : '';
+  document.getElementById('lugarModal').classList.add('open');
+}
+function closeLugarModal() { document.getElementById('lugarModal').classList.remove('open'); }
+
+async function saveLugar() {
+  const nombre = document.getElementById('lNombre').value.trim();
+  if (!nombre) { showStatus('El nombre es obligatorio', 'error'); return; }
+  const direccion = document.getElementById('lDireccion').value.trim() || null;
+  if (editingLugarId) {
+    await updateLugar(editingLugarId, { nombre, direccion });
+  } else {
+    await insertLugar({ nombre, direccion });
+  }
+  closeLugarModal();
+  renderLugares();
+  showStatus('Lugar guardado', 'success');
+}
+
+async function deleteLugar(id) {
+  if (!confirm('¿Eliminar este lugar?')) return;
+  await removeLugar(id);
+  renderLugares();
+  renderCalendar();
+  showStatus('Lugar eliminado');
+}
+
+// ══════════════════════════════════════════════════════════
+//  THEME
+// ══════════════════════════════════════════════════════════
+function setTheme(t) {
+  document.body.setAttribute('data-theme', t === 'dark' ? 'dark' : '');
+  document.getElementById('theme-light').classList.toggle('active', t === 'light');
+  document.getElementById('theme-dark').classList.toggle('active', t === 'dark');
+  localStorage.setItem('pred-theme', t);
+}
+function loadTheme() {
+  const t = localStorage.getItem('pred-theme') || 'light';
+  setTheme(t);
+}
+
+// ══════════════════════════════════════════════════════════
+//  SUPABASE CONFIG
+// ══════════════════════════════════════════════════════════
+function encodeB64(str) { return btoa(unescape(encodeURIComponent(str))); }
+function decodeB64(str) { try { return decodeURIComponent(escape(atob(str))); } catch { return ''; } }
+
+async function saveConfig() {
+  const url = document.getElementById('cfgUrl').value.trim();
+  const key = document.getElementById('cfgKey').value.trim();
+  if (!url || !key) { showStatus('Ingresa URL y Key', 'error'); return; }
+  localStorage.setItem('pred-cfg', encodeB64(JSON.stringify({ url, key })));
+  await initSupabase(url, key);
+}
+
+function clearConfig() {
+  localStorage.removeItem('pred-cfg');
+  supabase = null;
+  updateConnStatus(false);
+  showStatus('Configuración borrada');
+}
+
+async function loadConfig() {
+  const raw = localStorage.getItem('pred-cfg');
+  if (!raw) return;
+  try {
+    const { url, key } = JSON.parse(decodeB64(raw));
+    document.getElementById('cfgUrl').value = url;
+    document.getElementById('cfgKey').value = key;
+    await initSupabase(url, key);
+  } catch (e) { console.warn('Config inválida', e); }
+}
+
+async function initSupabase(url, key) {
+  try {
+    supabase = window.supabase.createClient(url, key);
+    // Test connection
+    const { error } = await supabase.from('capitanes').select('id').limit(1);
+    if (error) throw error;
+    updateConnStatus(true);
+    await loadAllData();
+  } catch (e) {
+    console.error('Supabase error:', e);
+    updateConnStatus(false, true);
+    showStatus('Error de conexión: ' + (e.message || e), 'error');
+  }
+}
+
+function updateConnStatus(ok, err) {
+  const dot = document.getElementById('connDot');
+  const txt = document.getElementById('connText');
+  dot.className = 'conn-dot' + (ok ? ' connected' : (err ? ' error' : ''));
+  txt.textContent = ok ? 'Conectado' : (err ? 'Error' : 'Sin conexión');
+}
+
+// ══════════════════════════════════════════════════════════
+//  DATA OPERATIONS (local + supabase)
+// ══════════════════════════════════════════════════════════
+async function loadAllData() {
+  if (!supabase) return;
+  const [capRes, lugRes, diasRes] = await Promise.all([
+    supabase.from('capitanes').select('*').order('nombre'),
+    supabase.from('lugares').select('*').order('nombre'),
+    supabase.from('dias_plan').select('*'),
+  ]);
+  capitanes = capRes.data || [];
+  lugares = lugRes.data || [];
+  diasPlan = {};
+  (diasRes.data || []).forEach(d => { diasPlan[d.fecha] = d; });
+  renderCalendar();
+}
+
+// ── Capitanes ──
+async function insertCapitan(data) {
+  if (supabase) {
+    const { data: row } = await supabase.from('capitanes').insert(data).select().single();
+    if (row) capitanes.push(row);
+  } else {
+    capitanes.push({ id: uid(), ...data });
+  }
+}
+async function updateCapitan(id, data) {
+  if (supabase) {
+    await supabase.from('capitanes').update(data).eq('id', id);
+  }
+  const i = capitanes.findIndex(c => c.id === id);
+  if (i > -1) capitanes[i] = { ...capitanes[i], ...data };
+}
+async function removeCapitan(id) {
+  if (supabase) await supabase.from('capitanes').delete().eq('id', id);
+  capitanes = capitanes.filter(c => c.id !== id);
+}
+
+// ── Lugares ──
+async function insertLugar(data) {
+  if (supabase) {
+    const { data: row } = await supabase.from('lugares').insert(data).select().single();
+    if (row) lugares.push(row);
+  } else {
+    lugares.push({ id: uid(), ...data });
+  }
+}
+async function updateLugar(id, data) {
+  if (supabase) await supabase.from('lugares').update(data).eq('id', id);
+  const i = lugares.findIndex(l => l.id === id);
+  if (i > -1) lugares[i] = { ...lugares[i], ...data };
+}
+async function removeLugar(id) {
+  if (supabase) await supabase.from('lugares').delete().eq('id', id);
+  lugares = lugares.filter(l => l.id !== id);
+}
+
+// ── Días ──
+async function upsertDia(data) {
+  if (supabase) {
+    await supabase.from('dias_plan').upsert(data, { onConflict: 'fecha' });
+  }
+  diasPlan[data.fecha] = { ...diasPlan[data.fecha], ...data };
+}
+
+// ══════════════════════════════════════════════════════════
+//  UTILS
+// ══════════════════════════════════════════════════════════
+function uid() {
+  return 'local-' + Math.random().toString(36).slice(2, 10);
+}
+
+let statusTimer;
+function showStatus(msg, type) {
+  const bar = document.getElementById('statusBar');
+  bar.textContent = msg;
+  bar.className = 'status-bar show' + (type ? ' ' + type : '');
+  clearTimeout(statusTimer);
+  statusTimer = setTimeout(() => bar.classList.remove('show'), 3000);
+}
+
+// Close modals on overlay click
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.classList.remove('open'); });
+});
+</script>
+</body>
+</html>
