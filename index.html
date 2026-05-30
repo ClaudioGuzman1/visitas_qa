@@ -535,10 +535,10 @@
     <span id="connText">Sin conexión</span>
   </div>
   <nav class="app-nav">
-    <button class="nav-btn active" onclick="showTab('calendario')">📅 Calendario</button>
-    <button class="nav-btn" onclick="showTab('datos')">👥 Datos</button>
-    <button class="nav-btn" onclick="showTab('estilo')">🎨 Estilo</button>
-    <button class="nav-btn" onclick="showTab('config')">⚙️ Config</button>
+    <button class="nav-btn active" onclick="showTab('calendario',this)">📅 Calendario</button>
+    <button class="nav-btn" onclick="showTab('datos',this)">👥 Datos</button>
+    <button class="nav-btn" onclick="showTab('estilo',this)">🎨 Estilo</button>
+    <button class="nav-btn" onclick="showTab('config',this)">⚙️ Config</button>
   </nav>
 </header>
 
@@ -767,38 +767,43 @@ CREATE POLICY "allow_all" ON dias_plan FOR ALL USING (true) WITH CHECK (true);</
 // ══════════════════════════════════════════════════════════
 //  STATE
 // ══════════════════════════════════════════════════════════
-let supabase = null;
-let capitanes = [];
-let lugares = [];
-let diasPlan = {}; // keyed by 'YYYY-MM-DD'
-let currentYear, currentMonth;
-let editingCapitanId = null;
-let editingLugarId = null;
-let editingDayDate = null;
-let copyDates = new Set();
-
-const CIPHER_KEY = 'pred-plan-v1';
+var sbClient = null;
+var capitanes = [];
+var lugares = [];
+var diasPlan = {}; // keyed by 'YYYY-MM-DD'
+var currentYear, currentMonth;
+var editingCapitanId = null;
+var editingLugarId = null;
+var editingDayDate = null;
+var copyDates = new Set();
+var statusTimer;
 
 // ══════════════════════════════════════════════════════════
-//  INIT
+//  INIT (deferred so DOM + Supabase SDK are ready)
 // ══════════════════════════════════════════════════════════
-(async function init() {
-  const today = new Date();
+document.addEventListener('DOMContentLoaded', async function() {
+  var today = new Date();
   currentYear = today.getFullYear();
   currentMonth = today.getMonth();
   loadTheme();
   await loadConfig();
   renderCalendar();
-})();
+  // Close modals on overlay click
+  document.querySelectorAll('.modal-overlay').forEach(function(overlay) {
+    overlay.addEventListener('click', function(e) {
+      if (e.target === overlay) overlay.classList.remove('open');
+    });
+  });
+});
 
 // ══════════════════════════════════════════════════════════
 //  TABS
 // ══════════════════════════════════════════════════════════
-function showTab(name) {
+function showTab(name, btn) {
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
-  event.currentTarget.classList.add('active');
+  if (btn) btn.classList.add('active');
   if (name === 'datos') { renderCapitanes(); renderLugares(); }
 }
 
@@ -1082,7 +1087,7 @@ async function saveConfig() {
 
 function clearConfig() {
   localStorage.removeItem('pred-cfg');
-  supabase = null;
+  sbClient = null;
   updateConnStatus(false);
   showStatus('Configuración borrada');
 }
@@ -1100,9 +1105,9 @@ async function loadConfig() {
 
 async function initSupabase(url, key) {
   try {
-    supabase = window.supabase.createClient(url, key);
+    sbClient = window.supabase.createClient(url, key);
     // Test connection
-    const { error } = await supabase.from('capitanes').select('id').limit(1);
+    const { error } = await sbClient.from('capitanes').select('id').limit(1);
     if (error) throw error;
     updateConnStatus(true);
     await loadAllData();
@@ -1124,11 +1129,11 @@ function updateConnStatus(ok, err) {
 //  DATA OPERATIONS (local + supabase)
 // ══════════════════════════════════════════════════════════
 async function loadAllData() {
-  if (!supabase) return;
+  if (!sbClient) return;
   const [capRes, lugRes, diasRes] = await Promise.all([
-    supabase.from('capitanes').select('*').order('nombre'),
-    supabase.from('lugares').select('*').order('nombre'),
-    supabase.from('dias_plan').select('*'),
+    sbClient.from('capitanes').select('*').order('nombre'),
+    sbClient.from('lugares').select('*').order('nombre'),
+    sbClient.from('dias_plan').select('*'),
   ]);
   capitanes = capRes.data || [];
   lugares = lugRes.data || [];
@@ -1139,72 +1144,63 @@ async function loadAllData() {
 
 // ── Capitanes ──
 async function insertCapitan(data) {
-  if (supabase) {
-    const { data: row } = await supabase.from('capitanes').insert(data).select().single();
+  if (sbClient) {
+    const { data: row } = await sbClient.from('capitanes').insert(data).select().single();
     if (row) capitanes.push(row);
   } else {
     capitanes.push({ id: uid(), ...data });
   }
 }
 async function updateCapitan(id, data) {
-  if (supabase) {
-    await supabase.from('capitanes').update(data).eq('id', id);
+  if (sbClient) {
+    await sbClient.from('capitanes').update(data).eq('id', id);
   }
   const i = capitanes.findIndex(c => c.id === id);
   if (i > -1) capitanes[i] = { ...capitanes[i], ...data };
 }
 async function removeCapitan(id) {
-  if (supabase) await supabase.from('capitanes').delete().eq('id', id);
+  if (sbClient) await sbClient.from('capitanes').delete().eq('id', id);
   capitanes = capitanes.filter(c => c.id !== id);
 }
 
 // ── Lugares ──
 async function insertLugar(data) {
-  if (supabase) {
-    const { data: row } = await supabase.from('lugares').insert(data).select().single();
+  if (sbClient) {
+    const { data: row } = await sbClient.from('lugares').insert(data).select().single();
     if (row) lugares.push(row);
   } else {
     lugares.push({ id: uid(), ...data });
   }
 }
 async function updateLugar(id, data) {
-  if (supabase) await supabase.from('lugares').update(data).eq('id', id);
+  if (sbClient) await sbClient.from('lugares').update(data).eq('id', id);
   const i = lugares.findIndex(l => l.id === id);
   if (i > -1) lugares[i] = { ...lugares[i], ...data };
 }
 async function removeLugar(id) {
-  if (supabase) await supabase.from('lugares').delete().eq('id', id);
+  if (sbClient) await sbClient.from('lugares').delete().eq('id', id);
   lugares = lugares.filter(l => l.id !== id);
 }
 
 // ── Días ──
 async function upsertDia(data) {
-  if (supabase) {
-    await supabase.from('dias_plan').upsert(data, { onConflict: 'fecha' });
+  if (sbClient) {
+    await sbClient.from('dias_plan').upsert(data, { onConflict: 'fecha' });
   }
   diasPlan[data.fecha] = { ...diasPlan[data.fecha], ...data };
 }
 
-// ══════════════════════════════════════════════════════════
-//  UTILS
-// ══════════════════════════════════════════════════════════
 function uid() {
   return 'local-' + Math.random().toString(36).slice(2, 10);
 }
 
-let statusTimer;
 function showStatus(msg, type) {
-  const bar = document.getElementById('statusBar');
+  var bar = document.getElementById('statusBar');
   bar.textContent = msg;
   bar.className = 'status-bar show' + (type ? ' ' + type : '');
   clearTimeout(statusTimer);
-  statusTimer = setTimeout(() => bar.classList.remove('show'), 3000);
+  statusTimer = setTimeout(function() { bar.classList.remove('show'); }, 3000);
 }
-
-// Close modals on overlay click
-document.querySelectorAll('.modal-overlay').forEach(overlay => {
-  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.classList.remove('open'); });
-});
 </script>
 </body>
 </html>
