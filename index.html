@@ -152,6 +152,10 @@
       <div id="territory-list-container">
         <div class="empty-state"><div class="empty-state-icon">🗺️</div><p>Cargando territorios…</p></div>
       </div>
+      <div class="card" id="kml-layers-card" style="display:none">
+        <div class="card-title">Capas KML cargadas</div>
+        <div id="kml-layers-list" style="display:flex;flex-direction:column;gap:6px;"></div>
+      </div>
     </div>
 
     <!-- SESIÓN -->
@@ -222,9 +226,14 @@
         <div class="legend-item"><div class="legend-dot" style="background:#E24B4A"></div>Fin hoy</div>
         <div class="legend-item"><div class="legend-dot" style="background:#EF9F27"></div>Mañana</div>
         <div class="legend-item"><div class="legend-dot" style="background:#185FA5;border-radius:2px;width:14px;height:10px;"></div>Territorio</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#7F77DD;border-radius:2px;width:14px;height:10px;"></div>KML</div>
       </div>
       <div class="map-controls">
         <button class="btn btn-sm btn-secondary" onclick="fitAllTerritories()">🔍 Ver todo</button>
+        <label class="btn btn-sm btn-secondary" style="cursor:pointer;" title="Cargar archivo KML">
+          📂 KML <input type="file" id="kml-file-input" accept=".kml" style="display:none" onchange="loadKMLFile(event)">
+        </label>
+        <button class="btn btn-sm btn-secondary" onclick="clearKMLLayers()" title="Quitar capas KML">✕ KML</button>
       </div>
     </div>
     <div id="map"></div>
@@ -340,7 +349,7 @@ let sessions = {};   // key: territoryId_date → session row
 let historyRows = [];
 let map, pointPickerMap;
 let pickMode = null;
-let markers = {}, routeLines = [];
+let markers = {}, routeLines = [], kmlLayers = [];
 let newTerritoryLatLng = null;
 let selectedTerritory = null;
 const BADGE_COLORS = ['badge-0','badge-1','badge-2','badge-3','badge-4','badge-5'];
@@ -796,6 +805,194 @@ function showToast(msg, isError) {
   t.textContent = (isError ? '⚠️ ' : '✓ ') + msg;
   t.className = 'toast' + (isError ? ' error' : '') + ' show';
   setTimeout(() => { t.className = 'toast' + (isError ? ' error' : ''); }, 3000);
+}
+
+
+// ===== KML =====
+function loadKMLFile(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const kmlText = e.target.result;
+      const parser = new DOMParser();
+      const kmlDoc = parser.parseFromString(kmlText, 'text/xml');
+      const parseError = kmlDoc.querySelector('parsererror');
+      if (parseError) { showToast('KML inválido o malformado', true); return; }
+      const layerGroup = parseKML(kmlDoc, file.name);
+      if (!layerGroup) { showToast('No se encontraron geometrías en el KML', true); return; }
+      layerGroup.addTo(map);
+      const bounds = layerGroup.getBounds();
+      if (bounds.isValid()) map.fitBounds(bounds, { padding: [30, 30] });
+      kmlLayers.push({ name: file.name, layer: layerGroup });
+      renderKMLList();
+      showToast(`KML "${file.name}" cargado ✓`);
+    } catch(err) {
+      showToast('Error al leer KML: ' + err.message, true);
+    }
+    event.target.value = '';
+  };
+  reader.readAsText(file);
+}
+
+function parseKML(kmlDoc, filename) {
+  const group = L.featureGroup();
+  let count = 0;
+
+  // Style map: id -> {color, fillColor, weight, fillOpacity}
+  const styleMap = {};
+  kmlDoc.querySelectorAll('Style').forEach(style => {
+    const id = style.getAttribute('id');
+    if (!id) return;
+    const ls = style.querySelector('LineStyle');
+    const ps = style.querySelector('PolyStyle');
+    const is = style.querySelector('IconStyle');
+    styleMap['#' + id] = {
+      color: ls ? kmlColorToHex(ls.querySelector('color')?.textContent) : '#7F77DD',
+      weight: ls ? (parseFloat(ls.querySelector('width')?.textContent) || 2) : 2,
+      fillColor: ps ? kmlColorToHex(ps.querySelector('color')?.textContent) : '#7F77DD',
+      fillOpacity: ps ? 0.25 : 0,
+      iconColor: is ? kmlColorToHex(is.querySelector('color')?.textContent) : '#7F77DD',
+    };
+  });
+
+  // StyleMap (maps normal/highlight to Style)
+  const styleMapRef = {};
+  kmlDoc.querySelectorAll('StyleMap').forEach(sm => {
+    const id = sm.getAttribute('id');
+    if (!id) return;
+    sm.querySelectorAll('Pair').forEach(pair => {
+      if (pair.querySelector('key')?.textContent === 'normal') {
+        styleMapRef['#' + id] = pair.querySelector('styleUrl')?.textContent;
+      }
+    });
+  });
+
+  function resolveStyle(styleUrl) {
+    if (!styleUrl) return {};
+    if (styleMapRef[styleUrl]) return styleMap[styleMapRef[styleUrl]] || {};
+    return styleMap[styleUrl] || {};
+  }
+
+  function parseCoords(text) {
+    return text.trim().split(/\s+/).map(c => {
+      const parts = c.split(',');
+      return [parseFloat(parts[1]), parseFloat(parts[0])]; // lat, lng
+    }).filter(p => !isNaN(p[0]) && !isNaN(p[1]));
+  }
+
+  function processMark(pm) {
+    const styleUrl = pm.querySelector('styleUrl')?.textContent;
+    const style = resolveStyle(styleUrl);
+    const name = pm.querySelector('name')?.textContent || '';
+    const desc = pm.querySelector('description')?.textContent || '';
+
+    // Point
+    pm.querySelectorAll('Point').forEach(pt => {
+      const coords = parseCoords(pt.querySelector('coordinates')?.textContent || '');
+      if (coords.length === 0) return;
+      const color = style.iconColor || style.color || '#7F77DD';
+      const icon = L.divIcon({
+        className: '',
+        html: `<div style="background:${color};width:12px;height:12px;border-radius:50%;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.3)"></div>`,
+        iconAnchor: [6, 6]
+      });
+      const m = L.marker(coords[0], { icon });
+      if (name || desc) m.bindPopup(`<b>${name}</b>${desc ? '<br>' + desc.substring(0,200) : ''}`);
+      group.addLayer(m); count++;
+    });
+
+    // LineString
+    pm.querySelectorAll('LineString').forEach(ls => {
+      const coords = parseCoords(ls.querySelector('coordinates')?.textContent || '');
+      if (coords.length < 2) return;
+      const l = L.polyline(coords, {
+        color: style.color || '#7F77DD',
+        weight: style.weight || 2,
+        opacity: 0.85
+      });
+      if (name) l.bindPopup(`<b>${name}</b>${desc ? '<br>' + desc.substring(0,200) : ''}`);
+      group.addLayer(l); count++;
+    });
+
+    // Polygon
+    pm.querySelectorAll('Polygon').forEach(pg => {
+      const outer = pg.querySelector('outerBoundaryIs coordinates') ||
+                    pg.querySelector('outerBoundaryIs > LinearRing > coordinates');
+      if (!outer) return;
+      const coords = parseCoords(outer.textContent);
+      if (coords.length < 3) return;
+      const holes = [];
+      pg.querySelectorAll('innerBoundaryIs').forEach(ib => {
+        const ic = ib.querySelector('coordinates');
+        if (ic) holes.push(parseCoords(ic.textContent));
+      });
+      const poly = L.polygon(holes.length ? [coords, ...holes] : coords, {
+        color: style.color || '#7F77DD',
+        weight: style.weight || 2,
+        fillColor: style.fillColor || '#7F77DD',
+        fillOpacity: style.fillOpacity !== undefined ? style.fillOpacity : 0.2,
+      });
+      if (name) poly.bindPopup(`<b>${name}</b>${desc ? '<br>' + desc.substring(0,200) : ''}`);
+      group.addLayer(poly); count++;
+    });
+
+    // MultiGeometry — recurse
+    pm.querySelectorAll('MultiGeometry').forEach(mg => {
+      // wrap children as pseudo-Placemark
+      const fake = kmlDoc.createElement('Placemark');
+      [...mg.children].forEach(child => fake.appendChild(child.cloneNode(true)));
+      if (styleUrl) {
+        const su = kmlDoc.createElement('styleUrl');
+        su.textContent = styleUrl;
+        fake.appendChild(su);
+      }
+      processMark(fake);
+    });
+  }
+
+  kmlDoc.querySelectorAll('Placemark').forEach(pm => processMark(pm));
+
+  return count > 0 ? group : null;
+}
+
+function kmlColorToHex(kmlColor) {
+  if (!kmlColor) return '#7F77DD';
+  const c = kmlColor.trim().replace('#', '');
+  if (c.length === 8) {
+    // KML: aabbggrr → #rrggbb
+    return '#' + c.substring(6, 8) + c.substring(4, 6) + c.substring(2, 4);
+  }
+  if (c.length === 6) return '#' + c;
+  return '#7F77DD';
+}
+
+function renderKMLList() {
+  const card = document.getElementById('kml-layers-card');
+  const list = document.getElementById('kml-layers-list');
+  if (kmlLayers.length === 0) { card.style.display = 'none'; return; }
+  card.style.display = 'block';
+  list.innerHTML = kmlLayers.map((k, i) => `
+    <div style="display:flex;align-items:center;gap:8px;font-size:12px;">
+      <div style="width:12px;height:12px;background:#7F77DD;border-radius:3px;flex-shrink:0;"></div>
+      <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${k.name}">${k.name}</span>
+      <button class="btn btn-sm btn-danger" style="padding:3px 7px;" onclick="removeKMLLayer(${i})">✕</button>
+    </div>`).join('');
+}
+
+function removeKMLLayer(i) {
+  if (kmlLayers[i]) { try { map.removeLayer(kmlLayers[i].layer); } catch(e){} }
+  kmlLayers.splice(i, 1);
+  renderKMLList();
+  showToast('Capa KML eliminada');
+}
+
+function clearKMLLayers() {
+  kmlLayers.forEach(k => { try { map.removeLayer(k.layer); } catch(e){} });
+  kmlLayers = [];
+  renderKMLList();
+  showToast('Capas KML eliminadas');
 }
 
 document.addEventListener('DOMContentLoaded', init);
