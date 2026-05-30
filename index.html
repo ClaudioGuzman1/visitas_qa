@@ -708,8 +708,25 @@ CREATE POLICY "allow_all" ON dias_plan FOR ALL USING (true) WITH CHECK (true);</
       </div>
 
       <div class="copy-dates">
-        <div class="copy-dates-title">📋 Copiar lugar y horarios en otras fechas</div>
-        <div class="copy-dates-grid" id="copyDatesGrid"></div>
+        <div class="copy-dates-title">📋 Copiar en otras fechas del mes</div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+
+          <div>
+            <div style="font-size:0.72rem;font-weight:600;color:var(--text2);margin-bottom:5px;">📍 Copiar Lugar de Encuentro</div>
+            <div class="copy-dates-grid" id="copyLugarGrid"></div>
+          </div>
+
+          <div>
+            <div style="font-size:0.72rem;font-weight:600;color:var(--text2);margin-bottom:5px;">🌅 Copiar Capitán Mañana</div>
+            <div class="copy-dates-grid" id="copyCapMaGrid"></div>
+          </div>
+
+          <div>
+            <div style="font-size:0.72rem;font-weight:600;color:var(--text2);margin-bottom:5px;">🌇 Copiar Capitán Tarde</div>
+            <div class="copy-dates-grid" id="copyCapTaGrid"></div>
+          </div>
+
+        </div>
       </div>
     </div>
 
@@ -776,6 +793,9 @@ var editingCapitanId = null;
 var editingLugarId = null;
 var editingDayDate = null;
 var copyDates = new Set();
+var copyLugar = new Set();
+var copyCapMa = new Set();
+var copyCapTa = new Set();
 var statusTimer;
 
 // ══════════════════════════════════════════════════════════
@@ -840,13 +860,13 @@ function renderCalendar() {
       const lugar = lugares.find(l => l.id === plan.lugar_id);
       if (lugar) inner += `<div class="day-lugar">${lugar.nombre}</div>`;
       if (!noPred) {
-        if (plan.hora_manana) {
-          const cap = capitanes.find(c => c.id === plan.capitan_manana_id);
-          inner += `<div class="day-turno"><span class="hora">${plan.hora_manana.slice(0,5)}</span><span class="sep">›</span>${cap ? cap.nombre.split(' ')[0] : '—'}</div>`;
+        const capMa = capitanes.find(c => c.id === plan.capitan_manana_id);
+        if (plan.hora_manana && capMa) {
+          inner += `<div class="day-turno"><span class="hora">${to12h(plan.hora_manana)}</span><span class="sep">›</span>${capMa.nombre.split(' ')[0]}</div>`;
         }
-        if (plan.hora_tarde) {
-          const cap = capitanes.find(c => c.id === plan.capitan_tarde_id);
-          inner += `<div class="day-turno"><span class="hora">${plan.hora_tarde.slice(0,5)}</span><span class="sep">›</span>${cap ? cap.nombre.split(' ')[0] : '—'}</div>`;
+        const capTa = capitanes.find(c => c.id === plan.capitan_tarde_id);
+        if (plan.hora_tarde && capTa) {
+          inner += `<div class="day-turno"><span class="hora">${to12h(plan.hora_tarde)}</span><span class="sep">›</span>${capTa.nombre.split(' ')[0]}</div>`;
         }
       } else {
         inner += `<div class="no-pred-badge">Sin predicación</div>`;
@@ -877,7 +897,9 @@ function goToday() {
 // ══════════════════════════════════════════════════════════
 function openDayModal(dateStr) {
   editingDayDate = dateStr;
-  copyDates = new Set();
+  copyLugar = new Set();
+  copyCapMa = new Set();
+  copyCapTa = new Set();
   const plan = diasPlan[dateStr] || {};
   const d = new Date(dateStr + 'T12:00:00');
   document.getElementById('dayModalTitle').textContent = d.toLocaleDateString('es-MX', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
@@ -901,15 +923,20 @@ function openDayModal(dateStr) {
   document.getElementById('dHoraMa').value = plan.hora_manana ? plan.hora_manana.slice(0,5) : '08:00';
   document.getElementById('dHoraTa').value = plan.hora_tarde ? plan.hora_tarde.slice(0,5) : '14:00';
 
-  // Copy dates grid
+  // Build copy grids
   const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-  let copyHtml = '';
-  for (let dd = 1; dd <= daysInMonth; dd++) {
-    const ds = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-${String(dd).padStart(2,'0')}`;
-    if (ds === dateStr) continue;
-    copyHtml += `<button class="copy-date-btn" id="copy-${ds}" onclick="toggleCopyDate('${ds}')">${dd}</button>`;
+  function buildCopyGrid(containerId, set) {
+    let html = '';
+    for (let dd = 1; dd <= daysInMonth; dd++) {
+      const ds = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-${String(dd).padStart(2,'0')}`;
+      if (ds === dateStr) continue;
+      html += `<button class="copy-date-btn" id="${containerId}-${ds}" onclick="toggleCopy('${containerId}','${ds}')">${dd}</button>`;
+    }
+    document.getElementById(containerId).innerHTML = html;
   }
-  document.getElementById('copyDatesGrid').innerHTML = copyHtml;
+  buildCopyGrid('copyLugarGrid', copyLugar);
+  buildCopyGrid('copyCapMaGrid', copyCapMa);
+  buildCopyGrid('copyCapTaGrid', copyCapTa);
 
   document.getElementById('dayModal').classList.add('open');
 }
@@ -921,10 +948,12 @@ function togglePred() {
   document.getElementById('dayForm').style.display = on ? '' : 'none';
 }
 
-function toggleCopyDate(ds) {
-  const btn = document.getElementById('copy-' + ds);
-  if (copyDates.has(ds)) { copyDates.delete(ds); btn.classList.remove('selected'); }
-  else { copyDates.add(ds); btn.classList.add('selected'); }
+function toggleCopy(gridId, ds) {
+  const setMap = { copyLugarGrid: copyLugar, copyCapMaGrid: copyCapMa, copyCapTaGrid: copyCapTa };
+  const set = setMap[gridId];
+  const btn = document.getElementById(gridId + '-' + ds);
+  if (set.has(ds)) { set.delete(ds); btn.classList.remove('selected'); }
+  else { set.add(ds); btn.classList.add('selected'); }
 }
 
 async function saveDayModal() {
@@ -940,14 +969,14 @@ async function saveDayModal() {
   };
   await upsertDia(data);
 
-  // Copy: only copy lugar + horarios, NOT captains
-  for (const ds of copyDates) {
-    const copy = { ...data, fecha: ds };
-    // Keep existing captains for copied dates
-    const existing = diasPlan[ds] || {};
-    copy.capitan_manana_id = existing.capitan_manana_id || null;
-    copy.capitan_tarde_id = existing.capitan_tarde_id || null;
-    await upsertDia(copy);
+  // Collect all dates that need any copy
+  const allDates = new Set([...copyLugar, ...copyCapMa, ...copyCapTa]);
+  for (const ds of allDates) {
+    const existing = { ...(diasPlan[ds] || {}), fecha: ds };
+    if (copyLugar.has(ds)) { existing.lugar_id = data.lugar_id; }
+    if (copyCapMa.has(ds)) { existing.capitan_manana_id = data.capitan_manana_id; existing.hora_manana = data.hora_manana; }
+    if (copyCapTa.has(ds)) { existing.capitan_tarde_id = data.capitan_tarde_id; existing.hora_tarde = data.hora_tarde; }
+    await upsertDia(existing);
   }
 
   closeDayModal();
@@ -1190,6 +1219,16 @@ async function upsertDia(data) {
     await sbClient.from('dias_plan').upsert(data, { onConflict: 'fecha' });
   }
   diasPlan[data.fecha] = { ...diasPlan[data.fecha], ...data };
+}
+
+function to12h(timeStr) {
+  // timeStr is 'HH:MM' or 'HH:MM:SS'
+  var parts = timeStr.slice(0,5).split(':');
+  var h = parseInt(parts[0], 10);
+  var m = parts[1];
+  var ampm = h >= 12 ? 'pm' : 'am';
+  h = h % 12 || 12;
+  return h + ':' + m + ' ' + ampm;
 }
 
 function uid() {
