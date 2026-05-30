@@ -816,10 +816,12 @@ function renderCalendar() {
   const date = new Date(currentYear, currentMonth, 1);
   title.textContent = date.toLocaleDateString('es-MX', { month: 'long', year: 'numeric' });
 
-  const dows = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+  const dows = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
   let html = dows.map(d => `<div class="cal-dow">${d}</div>`).join('');
 
-  const firstDow = date.getDay();
+  // getDay() returns 0=Sun..6=Sat; convert to 0=Mon..6=Sun
+  const rawDow = date.getDay();
+  const firstDow = (rawDow + 6) % 7;
   for (let i = 0; i < firstDow; i++) html += '<div class="cal-day empty"></div>';
 
   const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
