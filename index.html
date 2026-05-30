@@ -333,7 +333,7 @@ create table if not exists history (
   created_at timestamptz default now()
 );`;
 
-let supabase;
+let sb;
 let territories = [];
 let sessions = {};   // key: territoryId_date → session row
 let historyRows = [];
@@ -347,7 +347,7 @@ const MARKER_COLORS = { start: '#1D9E75', end: '#E24B4A', tomorrow: '#EF9F27' };
 
 // ===== INIT =====
 async function init() {
-  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   setLoading('Conectando con Supabase…');
   try {
     await loadAll();
@@ -368,18 +368,18 @@ async function init() {
 
 async function loadAll() {
   setLoading('Cargando territorios…');
-  const { data: tData, error: tErr } = await supabase.from('territories').select('*').order('created_at', { ascending: true });
+  const { data: tData, error: tErr } = await sb.from('territories').select('*').order('created_at', { ascending: true });
   if (tErr) throw tErr;
   territories = tData || [];
 
   setLoading('Cargando sesiones…');
-  const { data: sData, error: sErr } = await supabase.from('sessions').select('*');
+  const { data: sData, error: sErr } = await sb.from('sessions').select('*');
   if (sErr) throw sErr;
   sessions = {};
   (sData || []).forEach(s => { sessions[`${s.territory_id}_${s.session_date}`] = s; });
 
   setLoading('Cargando historial…');
-  const { data: hData, error: hErr } = await supabase.from('history').select('*').order('created_at', { ascending: false }).limit(100);
+  const { data: hData, error: hErr } = await sb.from('history').select('*').order('created_at', { ascending: false }).limit(100);
   if (hErr) throw hErr;
   historyRows = hData || [];
 }
@@ -532,7 +532,7 @@ async function saveTerritory() {
     lng: newTerritoryLatLng ? newTerritoryLatLng.lng : null,
   };
   try {
-    const { data, error } = await supabase.from('territories').insert(payload).select().single();
+    const { data, error } = await sb.from('territories').insert(payload).select().single();
     if (error) throw error;
     territories.push(data);
     await addHistoryEntry('territory_created', `Territorio creado: ${name}`, data.id);
@@ -553,7 +553,7 @@ async function deleteCurrentTerritory() {
   if (!selectedTerritory) return;
   if (!confirm(`¿Eliminar "${selectedTerritory.name}"? Esta acción no se puede deshacer.`)) return;
   setSyncState('syncing');
-  const { error } = await supabase.from('territories').delete().eq('id', selectedTerritory.id);
+  const { error } = await sb.from('territories').delete().eq('id', selectedTerritory.id);
   if (error) { showToast('Error al eliminar', true); setSyncState('error'); return; }
   territories = territories.filter(t => t.id !== selectedTerritory.id);
   closeModal('modal-detail');
@@ -568,7 +568,7 @@ async function markTerritoryComplete() {
   if (!selectedTerritory) return;
   setSyncState('syncing');
   const endDate = todayKey();
-  const { error } = await supabase.from('territories').update({ status: 'done', end_date: endDate }).eq('id', selectedTerritory.id);
+  const { error } = await sb.from('territories').update({ status: 'done', end_date: endDate }).eq('id', selectedTerritory.id);
   if (error) { showToast('Error al actualizar', true); setSyncState('error'); return; }
   const idx = territories.findIndex(t => t.id === selectedTerritory.id);
   if (idx > -1) { territories[idx].status = 'done'; territories[idx].end_date = endDate; }
@@ -664,7 +664,7 @@ async function placeSessionPoint(type, latlng) {
   updates[colMap[type][1]] = latlng.lng;
 
   setSyncState('syncing');
-  const { data, error } = await supabase.from('sessions').upsert(updates, { onConflict: 'territory_id,session_date' }).select().single();
+  const { data, error } = await sb.from('sessions').upsert(updates, { onConflict: 'territory_id,session_date' }).select().single();
   if (error) { showToast('Error al guardar punto', true); setSyncState('error'); return; }
   sessions[key] = data;
 
@@ -689,7 +689,7 @@ async function saveSessionNotes() {
   const notes = document.getElementById('session-notes').value;
   setSyncState('syncing');
   const payload = { territory_id: id, session_date: today, notes, ...existing };
-  const { data, error } = await supabase.from('sessions').upsert(payload, { onConflict: 'territory_id,session_date' }).select().single();
+  const { data, error } = await sb.from('sessions').upsert(payload, { onConflict: 'territory_id,session_date' }).select().single();
   if (error) { showToast('Error al guardar notas', true); setSyncState('error'); return; }
   sessions[key] = data;
   setSyncState('ok');
@@ -721,7 +721,7 @@ function updateProgress(id) {
 
 // ===== HISTORY =====
 async function addHistoryEntry(type, message, territoryId) {
-  const { data } = await supabase.from('history').insert({ type, message, territory_id: territoryId }).select().single();
+  const { data } = await sb.from('history').insert({ type, message, territory_id: territoryId }).select().single();
   if (data) historyRows.unshift(data);
 }
 
