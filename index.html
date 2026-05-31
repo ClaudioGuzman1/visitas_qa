@@ -3,1000 +3,1288 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Territorios de Predicación</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Spectral:wght@400;600&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<title>Territorios — Prados del Sol</title>
+
+<!-- Leaflet -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+
+<!-- Supabase -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<!-- Turf.js for geo operations -->
+<script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+
 <style>
+  @import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300&family=DM+Mono:wght@400;500&display=swap');
+
   :root {
-    --teal: #0F6E56; --teal-light: #E1F5EE; --teal-mid: #1D9E75; --teal-dark: #085041;
-    --amber: #BA7517; --amber-light: #FAEEDA; --amber-mid: #EF9F27;
-    --coral: #993C1D; --coral-light: #FAECE7;
-    --blue: #185FA5; --blue-light: #E6F1FB;
-    --gray-50: #F8F7F4; --gray-100: #EDECEA; --gray-200: #D3D1C7;
-    --gray-600: #5F5E5A; --gray-900: #2C2C2A;
-    --bg: #F4F2ED; --surface: #FDFCFA;
-    --radius: 10px; --radius-lg: 16px;
+    --bg: #0f1117;
+    --surface: #171c27;
+    --surface2: #1e2535;
+    --border: #2a3348;
+    --accent: #4a9eff;
+    --accent2: #64ffb4;
+    --warn: #ffb347;
+    --danger: #ff6b6b;
+    --text: #e8eaf0;
+    --text2: #8b93a8;
+    --text3: #5a6375;
+    --gold: #f0c060;
+    --map-h: calc(100vh - 120px);
   }
+
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--gray-900); min-height: 100vh; font-size: 14px; }
-  .app { display: flex; height: 100vh; overflow: hidden; }
-  .sidebar { width: 340px; min-width: 300px; background: var(--surface); border-right: 1px solid var(--gray-200); display: flex; flex-direction: column; overflow: hidden; z-index: 10; }
-  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-  .header { background: var(--teal-dark); color: white; padding: 14px 20px; display: flex; align-items: center; gap: 10px; }
-  .header-icon { font-size: 22px; }
-  .header h1 { font-family: 'Spectral', serif; font-size: 17px; font-weight: 600; line-height: 1.2; }
-  .header small { font-size: 11px; opacity: 0.7; display: block; }
-  .header-sync { margin-left: auto; font-size: 18px; cursor: pointer; opacity: 0.8; transition: opacity 0.2s; }
-  .header-sync:hover { opacity: 1; }
-  .tabs { display: flex; border-bottom: 1px solid var(--gray-200); background: var(--surface); }
-  .tab { flex: 1; padding: 10px 6px; text-align: center; cursor: pointer; font-size: 12px; font-weight: 500; color: var(--gray-600); border-bottom: 2px solid transparent; transition: all 0.15s; line-height: 1.3; }
-  .tab.active { color: var(--teal); border-bottom-color: var(--teal-mid); }
-  .tab-icon { display: block; font-size: 18px; margin-bottom: 2px; }
-  .panel { display: none; flex: 1; overflow-y: auto; padding: 16px; flex-direction: column; gap: 14px; }
-  .panel.active { display: flex; }
-  .card { background: white; border-radius: var(--radius); border: 1px solid var(--gray-200); padding: 14px; }
-  .card-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--gray-600); margin-bottom: 10px; }
-  .territory-item { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--gray-100); cursor: pointer; transition: background 0.1s; }
-  .territory-item:last-child { border-bottom: none; padding-bottom: 0; }
-  .territory-item:hover { background: var(--gray-50); margin: 0 -14px; padding: 10px 14px; border-radius: 6px; }
-  .t-badge { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 13px; flex-shrink: 0; }
-  .t-info { flex: 1; min-width: 0; }
-  .t-name { font-weight: 500; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .t-date { font-size: 11px; color: var(--gray-600); margin-top: 2px; }
-  .t-status { font-size: 10px; font-weight: 600; padding: 3px 8px; border-radius: 20px; white-space: nowrap; }
-  .status-active { background: var(--teal-light); color: var(--teal-dark); }
-  .status-done { background: var(--gray-100); color: var(--gray-600); }
-  .form-group { margin-bottom: 12px; }
-  .form-group label { display: block; font-size: 11px; font-weight: 600; color: var(--gray-600); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.05em; }
-  .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 8px 10px; border: 1px solid var(--gray-200); border-radius: var(--radius); font-family: 'DM Sans', sans-serif; font-size: 13px; background: white; color: var(--gray-900); transition: border 0.15s; }
-  .form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: var(--teal-mid); }
-  .form-group textarea { resize: vertical; min-height: 60px; }
-  .btn { padding: 9px 16px; border-radius: var(--radius); border: none; font-family: 'DM Sans', sans-serif; font-weight: 500; font-size: 13px; cursor: pointer; transition: all 0.15s; display: inline-flex; align-items: center; gap: 6px; }
-  .btn-primary { background: var(--teal); color: white; }
-  .btn-primary:hover { background: var(--teal-dark); }
-  .btn-secondary { background: var(--gray-100); color: var(--gray-900); }
-  .btn-secondary:hover { background: var(--gray-200); }
-  .btn-danger { background: var(--coral-light); color: var(--coral); }
-  .btn-danger:hover { background: #f5c4b3; }
-  .btn-sm { padding: 5px 10px; font-size: 12px; }
-  .btn-block { width: 100%; justify-content: center; }
-  .btn-icon { padding: 7px; border-radius: 8px; }
-  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-  #map { flex: 1; z-index: 1; }
-  .map-toolbar { background: white; border-bottom: 1px solid var(--gray-200); padding: 10px 16px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-  .map-toolbar-title { font-weight: 600; font-size: 13px; color: var(--teal-dark); margin-right: 4px; }
-  .legend { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
-  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--gray-600); }
-  .legend-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
-  .map-controls { display: flex; gap: 8px; margin-left: auto; }
-  .session-stat { display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: var(--gray-50); border-radius: var(--radius); border: 1px solid var(--gray-100); margin-bottom: 8px; }
-  .session-stat-icon { font-size: 20px; }
-  .session-stat-label { font-size: 10px; color: var(--gray-600); text-transform: uppercase; letter-spacing: 0.05em; }
-  .session-stat-value { font-size: 14px; font-weight: 600; }
-  .progress-bar { height: 6px; background: var(--gray-100); border-radius: 3px; overflow: hidden; margin-top: 6px; }
-  .progress-fill { height: 100%; background: var(--teal-mid); border-radius: 3px; transition: width 0.3s; }
-  .modal-overlay { position: fixed; inset: 0; background: rgba(44,44,42,0.5); z-index: 1000; display: none; align-items: center; justify-content: center; padding: 20px; }
-  .modal-overlay.open { display: flex; }
-  .modal { background: white; border-radius: var(--radius-lg); max-width: 480px; width: 100%; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.15); }
-  .modal-header { padding: 18px 20px 14px; display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid var(--gray-100); margin-bottom: 18px; }
-  .modal-header h2 { font-family: 'Spectral', serif; font-size: 17px; font-weight: 600; }
-  .modal-body { padding: 0 20px 20px; }
-  .modal-footer { padding: 14px 20px; border-top: 1px solid var(--gray-100); display: flex; gap: 8px; justify-content: flex-end; }
-  #point-map { height: 220px; border-radius: var(--radius); overflow: hidden; border: 1px solid var(--gray-200); margin-bottom: 8px; }
-  .point-coords { font-size: 11px; color: var(--gray-600); margin-bottom: 12px; }
-  .toast { position: fixed; bottom: 20px; right: 20px; z-index: 2000; background: var(--teal-dark); color: white; padding: 12px 18px; border-radius: var(--radius); font-size: 13px; max-width: 300px; transform: translateY(100px); opacity: 0; transition: all 0.3s; pointer-events: none; display: flex; align-items: center; gap: 8px; }
-  .toast.show { transform: translateY(0); opacity: 1; }
-  .toast.error { background: #711f1f; }
-  .empty-state { text-align: center; padding: 30px 16px; color: var(--gray-600); }
-  .empty-state-icon { font-size: 36px; margin-bottom: 10px; }
-  .empty-state p { font-size: 13px; line-height: 1.5; }
-  .badge-0 { background: #E1F5EE; color: #085041; } .badge-1 { background: #E6F1FB; color: #0C447C; }
-  .badge-2 { background: #FAEEDA; color: #633806; } .badge-3 { background: #FAECE7; color: #4A1B0C; }
-  .badge-4 { background: #EEEDFE; color: #26215C; } .badge-5 { background: #EAF3DE; color: #173404; }
-  .log-item { display: flex; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--gray-100); font-size: 12px; }
-  .log-item:last-child { border-bottom: none; }
-  .log-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 4px; flex-shrink: 0; }
-  .log-text { color: var(--gray-900); line-height: 1.4; }
-  .log-date { color: var(--gray-600); margin-top: 2px; font-size: 11px; }
-  /* Loading overlay */
-  .loading-overlay { position: fixed; inset: 0; background: rgba(8,80,65,0.92); z-index: 3000; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; gap: 16px; }
-  .loading-overlay.hidden { display: none; }
-  .spinner { width: 40px; height: 40px; border: 3px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .loading-overlay p { font-size: 14px; opacity: 0.85; }
-  /* Sync indicator */
-  .sync-dot { width: 8px; height: 8px; border-radius: 50%; background: #9FE1CB; display: inline-block; margin-left: 6px; }
-  .sync-dot.syncing { background: var(--amber-mid); animation: pulse 1s infinite; }
-  .sync-dot.error { background: #F09595; }
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
-  /* SQL modal */
-  .sql-block { background: #1a1a1a; color: #9FE1CB; font-family: monospace; font-size: 12px; padding: 14px; border-radius: var(--radius); overflow-x: auto; white-space: pre; line-height: 1.6; margin-bottom: 12px; }
-  @media (max-width: 700px) {
-    .app { flex-direction: column; }
-    .sidebar { width: 100%; height: 45vh; min-width: unset; }
-    .main { height: 55vh; }
+
+  body {
+    font-family: 'Crimson Pro', Georgia, serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow: hidden;
   }
+
+  /* ── TOP BAR ── */
+  .topbar {
+    height: 56px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    gap: 24px;
+    position: relative;
+    z-index: 1000;
+  }
+  .topbar-logo {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--gold);
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+  }
+  .topbar-logo span { color: var(--text2); font-weight: 300; font-style: italic; font-size: 14px; margin-left: 6px; }
+  .topbar-nav { display: flex; gap: 4px; margin-left: auto; }
+  .nav-btn {
+    background: none;
+    border: 1px solid transparent;
+    color: var(--text2);
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.5px;
+    transition: all 0.15s;
+  }
+  .nav-btn:hover { border-color: var(--border); color: var(--text); }
+  .nav-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+  /* ── LAYOUT ── */
+  .app-body {
+    display: flex;
+    height: calc(100vh - 56px);
+    overflow: hidden;
+  }
+
+  /* ── SIDEBAR ── */
+  .sidebar {
+    width: 320px;
+    min-width: 320px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .sidebar-header {
+    padding: 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .sidebar-header h2 { font-size: 16px; font-weight: 600; flex: 1; }
+  .sidebar-content { flex: 1; overflow-y: auto; padding: 12px; }
+
+  .panel { display: none; flex-direction: column; height: 100%; }
+  .panel.active { display: flex; }
+
+  /* ── CARDS ── */
+  .territory-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: all 0.15s;
+    position: relative;
+  }
+  .territory-card:hover { border-color: var(--accent); }
+  .territory-card.selected { border-color: var(--accent); background: rgba(74,158,255,0.08); }
+  .territory-card .tc-name { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+  .territory-card .tc-status { font-size: 12px; font-family: 'DM Mono', monospace; }
+  .status-dot {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    margin-right: 6px;
+  }
+  .status-pending { background: var(--warn); }
+  .status-active { background: var(--accent2); animation: pulse 1.5s infinite; }
+  .status-completed { background: var(--text3); }
+
+  @keyframes pulse {
+    0%,100% { opacity:1; } 50% { opacity:0.4; }
+  }
+
+  .tc-progress {
+    margin-top: 8px;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .tc-progress-fill { height: 100%; background: var(--accent2); border-radius: 2px; transition: width 0.4s; }
+
+  /* ── MAP ── */
+  .map-wrap { flex: 1; position: relative; }
+  #map { width: 100%; height: 100%; background: #0d1117; }
+
+  /* ── MAP OVERLAY CONTROLS ── */
+  .map-toolbar {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 500;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .map-btn {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.15s;
+    white-space: nowrap;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  }
+  .map-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .map-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .map-btn.danger { border-color: var(--danger); color: var(--danger); }
+  .map-btn.success { background: var(--accent2); border-color: var(--accent2); color: #000; }
+
+  .map-info {
+    position: absolute;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 500;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 8px 18px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-family: 'DM Mono', monospace;
+    color: var(--text2);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .map-info.show { opacity: 1; }
+
+  /* ── MODAL ── */
+  .modal-bg {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 2000;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-bg.open { display: flex; }
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    min-width: 360px;
+    max-width: 520px;
+    width: 90%;
+    max-height: 85vh;
+    overflow-y: auto;
+  }
+  .modal h3 { font-size: 18px; font-weight: 600; margin-bottom: 16px; color: var(--gold); }
+  .form-group { margin-bottom: 14px; }
+  .form-group label { display: block; font-size: 12px; font-family: 'DM Mono', monospace; color: var(--text2); margin-bottom: 6px; letter-spacing: 0.5px; }
+  .form-group input, .form-group select, .form-group textarea {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 9px 12px;
+    color: var(--text);
+    font-family: 'Crimson Pro', serif;
+    font-size: 15px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .form-group input:focus, .form-group select:focus { border-color: var(--accent); }
+  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+  .btn {
+    padding: 9px 20px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    transition: all 0.15s;
+  }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { opacity: 0.85; }
+  .btn-success { background: var(--accent2); color: #000; }
+  .btn-ghost { background: transparent; color: var(--text2); border: 1px solid var(--border); }
+  .btn-ghost:hover { border-color: var(--text2); color: var(--text); }
+  .btn-danger { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
+
+  /* ── HISTORY TABLE ── */
+  .history-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .history-table th {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--text2);
+    text-align: left;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .history-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  .history-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+  /* ── SESSION TRACKER ── */
+  .session-box {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+    margin-bottom: 12px;
+  }
+  .session-box h4 { font-size: 14px; color: var(--gold); margin-bottom: 10px; }
+  .timer-display {
+    font-family: 'DM Mono', monospace;
+    font-size: 28px;
+    text-align: center;
+    color: var(--accent2);
+    margin: 10px 0;
+  }
+
+  /* ── SPLIT MODE HINT ── */
+  .split-hint {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 500;
+    background: rgba(74,158,255,0.15);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    padding: 8px 18px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-family: 'DM Mono', monospace;
+    pointer-events: none;
+    display: none;
+  }
+  .split-hint.show { display: block; }
+
+  /* ── STATS ROW ── */
+  .stats-row { display: flex; gap: 8px; margin-bottom: 12px; }
+  .stat-chip {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px;
+    text-align: center;
+  }
+  .stat-chip .val { font-size: 22px; font-weight: 600; color: var(--gold); }
+  .stat-chip .lbl { font-size: 11px; font-family: 'DM Mono', monospace; color: var(--text2); }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* Leaflet dark overrides */
+  .leaflet-container { font-family: 'DM Mono', monospace; }
+  .leaflet-popup-content-wrapper {
+    background: var(--surface) !important;
+    color: var(--text) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 8px !important;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5) !important;
+  }
+  .leaflet-popup-tip { background: var(--surface) !important; }
+  .leaflet-popup-content { font-family: 'Crimson Pro', serif !important; font-size: 14px !important; }
+  .leaflet-bar a { background: var(--surface) !important; color: var(--text) !important; border-color: var(--border) !important; }
+  .leaflet-control-attribution { background: rgba(15,17,23,0.8) !important; color: var(--text3) !important; }
+
+  .divider-line { height: 1px; background: var(--border); margin: 12px 0; }
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 10px; font-family: 'DM Mono', monospace; font-size: 11px; }
+  .tag-blue { background: rgba(74,158,255,0.15); color: var(--accent); }
+  .tag-green { background: rgba(100,255,180,0.15); color: var(--accent2); }
+  .tag-orange { background: rgba(255,179,71,0.15); color: var(--warn); }
+
+  .empty-state { text-align: center; color: var(--text3); font-style: italic; padding: 30px 0; font-size: 14px; }
+
+  /* toast */
+  .toast {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 22px;
+    border-radius: 20px;
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    z-index: 9999;
+    transition: transform 0.3s;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  .toast.success { border-color: var(--accent2); color: var(--accent2); }
+  .toast.error { border-color: var(--danger); color: var(--danger); }
 </style>
 </head>
 <body>
 
-<!-- LOADING -->
-<div class="loading-overlay" id="loading-overlay">
-  <div class="spinner"></div>
-  <p id="loading-msg">Conectando con Supabase…</p>
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="topbar-logo">✦ Territorios <span>Prados del Sol</span></div>
+  <div class="topbar-nav">
+    <button class="nav-btn active" onclick="showPanel('territorios')">Territorios</button>
+    <button class="nav-btn" onclick="showPanel('predicacion')">Predicación</button>
+    <button class="nav-btn" onclick="showPanel('historial')">Historial</button>
+  </div>
 </div>
 
-<div class="app">
+<div class="app-body">
   <!-- SIDEBAR -->
   <div class="sidebar">
-    <div class="header">
-      <div class="header-icon">🗺️</div>
-      <div>
-        <h1>Territorios <span class="sync-dot" id="sync-dot" title="Estado de sincronización"></span></h1>
-        <small>Control de Predicación</small>
-      </div>
-      <div class="header-sync" onclick="syncAll()" title="Sincronizar">🔄</div>
-    </div>
-    <div class="tabs">
-      <div class="tab active" onclick="switchTab('territorios')"><span class="tab-icon">📋</span>Territorios</div>
-      <div class="tab" onclick="switchTab('sesion')"><span class="tab-icon">📍</span>Hoy</div>
-      <div class="tab" onclick="switchTab('historial')"><span class="tab-icon">📅</span>Historial</div>
-    </div>
 
-    <!-- TERRITORIOS -->
+    <!-- PANEL: TERRITORIOS -->
     <div class="panel active" id="panel-territorios">
-      <button class="btn btn-primary btn-block" onclick="openNewTerritoryModal()">＋ Nuevo Territorio</button>
-      <div id="territory-list-container">
-        <div class="empty-state"><div class="empty-state-icon">🗺️</div><p>Cargando territorios…</p></div>
+      <div class="sidebar-header">
+        <h2>🗺 Territorios</h2>
+        <button class="btn btn-primary" onclick="openNewTerritoryModal()" style="font-size:12px;padding:6px 12px">+ Nuevo</button>
       </div>
-      <div class="card" id="kml-layers-card" style="display:none">
-        <div class="card-title">Capas KML cargadas</div>
-        <div id="kml-layers-list" style="display:flex;flex-direction:column;gap:6px;"></div>
+      <div class="sidebar-content">
+        <div class="stats-row" id="stats-row">
+          <div class="stat-chip"><div class="val" id="stat-total">0</div><div class="lbl">Total</div></div>
+          <div class="stat-chip"><div class="val" id="stat-active">0</div><div class="lbl">Activos</div></div>
+          <div class="stat-chip"><div class="val" id="stat-done">0</div><div class="lbl">Completados</div></div>
+        </div>
+        <div id="territory-list"><div class="empty-state">Cargando territorios…</div></div>
       </div>
     </div>
 
-    <!-- SESIÓN -->
-    <div class="panel" id="panel-sesion">
-      <div class="card">
-        <div class="card-title">Sesión de hoy</div>
-        <div class="form-group">
-          <label>Territorio activo</label>
-          <select id="active-territory-select" onchange="onActiveTerritoryChange()">
-            <option value="">-- Seleccionar --</option>
-          </select>
+    <!-- PANEL: PREDICACIÓN -->
+    <div class="panel" id="panel-predicacion">
+      <div class="sidebar-header">
+        <h2>📖 Predicación</h2>
+      </div>
+      <div class="sidebar-content">
+        <div id="preaching-territory-select">
+          <div class="form-group">
+            <label>TERRITORIO ACTIVO</label>
+            <select id="preaching-territory-dd" onchange="onPreachingTerritoryChange()">
+              <option value="">— Seleccionar territorio —</option>
+            </select>
+          </div>
         </div>
-        <div id="session-info" style="display:none">
-          <div class="session-stat"><div class="session-stat-icon">🟢</div><div><div class="session-stat-label">Inicio hoy</div><div class="session-stat-value" id="session-start-display">Sin marcar</div></div></div>
-          <div class="session-stat"><div class="session-stat-icon">🔴</div><div><div class="session-stat-label">Fin hoy</div><div class="session-stat-value" id="session-end-display">Sin marcar</div></div></div>
-          <div class="session-stat"><div class="session-stat-icon">🟡</div><div><div class="session-stat-label">Continuar mañana</div><div class="session-stat-value" id="session-tomorrow-display">Sin marcar</div></div></div>
-          <div style="margin-top:6px;">
-            <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--gray-600);margin-bottom:4px;">
-              <span>Sesiones en este territorio</span><span id="progress-pct">0</span>
+        <div id="preaching-session-panel" style="display:none">
+          <div class="session-box">
+            <h4>⏱ Sesión de hoy</h4>
+            <div class="timer-display" id="session-timer">00:00:00</div>
+            <div style="display:flex;gap:8px;margin-top:10px">
+              <button class="btn btn-success" style="flex:1" id="btn-start-session" onclick="startSession()">▶ Iniciar</button>
+              <button class="btn btn-danger" style="flex:1" id="btn-end-session" onclick="endSession()" disabled>■ Finalizar</button>
             </div>
-            <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+          </div>
+          <div class="session-box">
+            <h4>📍 Ubicación actual</h4>
+            <button class="btn btn-ghost" style="width:100%;margin-bottom:10px" onclick="getCurrentLocation()">🔍 Detectar mi ubicación</button>
+            <div id="location-result" style="font-size:13px;color:var(--text2);min-height:20px"></div>
+          </div>
+          <div class="session-box" id="next-route-box" style="display:none">
+            <h4>🧭 Siguiente tramo</h4>
+            <div id="next-route-info" style="font-size:14px;color:var(--text);line-height:1.5"></div>
+          </div>
+          <div class="session-box">
+            <h4>📊 Progreso del territorio</h4>
+            <div id="preaching-progress"></div>
           </div>
         </div>
       </div>
-      <div class="card">
-        <div class="card-title">Marcar puntos en el mapa</div>
-        <div style="display:flex;flex-direction:column;gap:8px;">
-          <button class="btn btn-secondary btn-block btn-sm" onclick="startPickPoint('start')">🟢 Punto de inicio hoy</button>
-          <button class="btn btn-secondary btn-block btn-sm" onclick="startPickPoint('end')">🔴 Punto de fin hoy</button>
-          <button class="btn btn-secondary btn-block btn-sm" onclick="startPickPoint('tomorrow')">🟡 Continuar mañana desde aquí</button>
-        </div>
-        <div id="pick-mode-banner" style="display:none;margin-top:10px;padding:8px 10px;background:var(--amber-light);border-radius:var(--radius);font-size:12px;color:var(--amber);">
-          📌 Haz clic en el mapa para colocar el punto…
-        </div>
+    </div>
+
+    <!-- PANEL: HISTORIAL -->
+    <div class="panel" id="panel-historial">
+      <div class="sidebar-header">
+        <h2>📋 Historial</h2>
       </div>
-      <div class="card">
-        <div class="card-title">Notas de la sesión</div>
-        <div class="form-group">
-          <textarea id="session-notes" placeholder="Observaciones del día..." rows="3"></textarea>
+      <div class="sidebar-content">
+        <div class="form-group" style="margin-bottom:12px">
+          <label>FILTRAR POR TERRITORIO</label>
+          <select id="history-filter" onchange="loadHistory()">
+            <option value="">Todos</option>
+          </select>
         </div>
-        <button class="btn btn-primary btn-sm btn-block" onclick="saveSessionNotes()">💾 Guardar notas</button>
-      </div>
-      <div class="card" id="today-route-card" style="display:none">
-        <div class="card-title">Ruta de hoy</div>
-        <button class="btn btn-primary btn-sm" onclick="showTodayRoute()">📍 Ver ruta en mapa</button>
+        <div id="history-content"><div class="empty-state">Cargando historial…</div></div>
       </div>
     </div>
 
-    <!-- HISTORIAL -->
-    <div class="panel" id="panel-historial">
-      <div class="card">
-        <div class="card-title">Registro de actividad</div>
-        <div id="history-log"><div class="empty-state"><div class="empty-state-icon">📅</div><p>Cargando historial…</p></div></div>
-      </div>
-      <div class="card">
-        <div class="card-title">Territorios completados</div>
-        <div id="completed-list"><p style="font-size:12px;color:var(--gray-600);">Ninguno completado aún.</p></div>
-      </div>
-    </div>
   </div>
 
   <!-- MAP -->
-  <div class="main">
-    <div class="map-toolbar">
-      <div class="map-toolbar-title">Vista de Territorios</div>
-      <div class="legend">
-        <div class="legend-item"><div class="legend-dot" style="background:#1D9E75"></div>Inicio hoy</div>
-        <div class="legend-item"><div class="legend-dot" style="background:#E24B4A"></div>Fin hoy</div>
-        <div class="legend-item"><div class="legend-dot" style="background:#EF9F27"></div>Mañana</div>
-        <div class="legend-item"><div class="legend-dot" style="background:#185FA5;border-radius:2px;width:14px;height:10px;"></div>Territorio</div>
-        <div class="legend-item"><div class="legend-dot" style="background:#7F77DD;border-radius:2px;width:14px;height:10px;"></div>KML</div>
-      </div>
-      <div class="map-controls">
-        <button class="btn btn-sm btn-secondary" onclick="fitAllTerritories()">🔍 Ver todo</button>
-        <label class="btn btn-sm btn-secondary" style="cursor:pointer;" title="Cargar archivo KML">
-          📂 KML <input type="file" id="kml-file-input" accept=".kml" style="display:none" onchange="loadKMLFile(event)">
-        </label>
-        <button class="btn btn-sm btn-secondary" onclick="clearKMLLayers()" title="Quitar capas KML">✕ KML</button>
-      </div>
-    </div>
+  <div class="map-wrap">
     <div id="map"></div>
+    <div class="split-hint" id="split-hint">Haz clic en el mapa para agregar puntos de división · Doble clic para finalizar</div>
+    <div class="map-toolbar" id="map-toolbar">
+      <button class="map-btn" id="btn-split-mode" onclick="toggleSplitMode()">✂ Dividir territorio</button>
+      <button class="map-btn" id="btn-confirm-split" onclick="confirmSplit()" style="display:none" class="success">✓ Confirmar división</button>
+      <button class="map-btn" id="btn-cancel-split" onclick="cancelSplit()" style="display:none">✕ Cancelar</button>
+      <button class="map-btn" onclick="fitBounds()">⊡ Centrar mapa</button>
+      <button class="map-btn" onclick="toggleSatellite()">🛰 Satélite</button>
+    </div>
+    <div class="map-info" id="map-info"></div>
   </div>
 </div>
 
 <!-- MODAL: NUEVO TERRITORIO -->
-<div class="modal-overlay" id="modal-territory">
+<div class="modal-bg" id="modal-new-territory">
   <div class="modal">
-    <div class="modal-header">
-      <h2 id="modal-territory-title">Nuevo Territorio</h2>
-      <button class="btn btn-sm btn-icon btn-secondary" onclick="closeModal('modal-territory')">✕</button>
+    <h3>✦ Nuevo Territorio</h3>
+    <p style="color:var(--text2);font-size:14px;margin-bottom:16px">Selecciona un área del mapa principal o define el territorio desde un polígono existente. El nombre y número identifican el territorio.</p>
+    <div class="form-group">
+      <label>NÚMERO DE TERRITORIO</label>
+      <input type="number" id="new-territory-num" placeholder="Ej. 1, 2, 3…" min="1">
     </div>
-    <div class="modal-body">
-      <div class="form-group"><label>Nombre del territorio *</label><input type="text" id="t-name" placeholder="Ej: Sector Norte 1, Colonia Centro..."></div>
-      <div class="form-group"><label>Número / código</label><input type="text" id="t-code" placeholder="Ej: T-01"></div>
-      <div class="form-group"><label>Fecha de asignación</label><input type="date" id="t-start-date"></div>
-      <div class="form-group"><label>Descripción / límites</label><textarea id="t-description" placeholder="Descripción de calles o límites del territorio..."></textarea></div>
-      <div class="form-group">
-        <label>Ubicación en mapa</label>
-        <div id="point-map"></div>
-        <div class="point-coords" id="point-coords-display">Haz clic en el mapa para centrar el territorio</div>
-      </div>
+    <div class="form-group">
+      <label>NOMBRE</label>
+      <input type="text" id="new-territory-name" placeholder="Ej. Sector Norte">
     </div>
-    <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="closeModal('modal-territory')">Cancelar</button>
-      <button class="btn btn-primary" id="btn-save-territory" onclick="saveTerritory()">Guardar territorio</button>
+    <div class="form-group">
+      <label>DESCRIPCIÓN (opcional)</label>
+      <textarea id="new-territory-desc" rows="2" placeholder="Notas sobre el territorio…" style="resize:vertical"></textarea>
+    </div>
+    <p style="font-size:13px;color:var(--accent);margin-bottom:4px">💡 Activa "✂ Dividir territorio" en el mapa para marcar puntos y generar el polígono, o el territorio tomará el área KML completa.</p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modal-new-territory')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveNewTerritory()">Guardar territorio</button>
     </div>
   </div>
 </div>
 
 <!-- MODAL: DETALLE TERRITORIO -->
-<div class="modal-overlay" id="modal-detail">
+<div class="modal-bg" id="modal-territory-detail">
   <div class="modal">
-    <div class="modal-header">
-      <h2 id="detail-title">Territorio</h2>
-      <button class="btn btn-sm btn-icon btn-secondary" onclick="closeModal('modal-detail')">✕</button>
-    </div>
-    <div class="modal-body" id="detail-body"></div>
-    <div class="modal-footer">
-      <button class="btn btn-danger btn-sm" onclick="deleteCurrentTerritory()">🗑 Eliminar</button>
-      <button class="btn btn-secondary btn-sm" onclick="markTerritoryComplete()">✅ Marcar completado</button>
-      <button class="btn btn-primary btn-sm" onclick="closeModal('modal-detail')">Cerrar</button>
+    <h3 id="modal-detail-title">Territorio</h3>
+    <div id="modal-detail-content"></div>
+    <div class="modal-actions">
+      <button class="btn btn-danger" onclick="deleteTerritory()">Eliminar</button>
+      <button class="btn btn-ghost" onclick="closeModal('modal-territory-detail')">Cerrar</button>
+      <button class="btn btn-success" onclick="startPreachingFromDetail()">▶ Iniciar predicación</button>
     </div>
   </div>
 </div>
 
-<!-- MODAL: SETUP SQL -->
-<div class="modal-overlay" id="modal-setup">
-  <div class="modal" style="max-width:560px">
-    <div class="modal-header">
-      <h2>⚙️ Configuración inicial requerida</h2>
-    </div>
-    <div class="modal-body">
-      <p style="font-size:13px;color:var(--gray-600);margin-bottom:14px;">Las tablas no existen aún en tu proyecto Supabase. Ejecuta este SQL en <strong>Supabase → SQL Editor → New query</strong>:</p>
-      <div class="sql-block" id="sql-block"></div>
-      <p style="font-size:12px;color:var(--gray-600);">Después haz clic en <strong>Reintentar</strong> para conectar.</p>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-primary" onclick="retryInit()">🔄 Reintentar conexión</button>
-    </div>
-  </div>
-</div>
-
+<!-- TOAST -->
 <div class="toast" id="toast"></div>
 
 <script>
-(function() {
-// ===== SUPABASE CONFIG =====
+// ── CONFIG ──
 const SUPABASE_URL = 'https://pbcyeeqkdudlnqghgwmb.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBiY3llZXFrZHVkbG5xZ2hnd21iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAxMzgwNjksImV4cCI6MjA5NTcxNDA2OX0.HUWjTRPmRAcgcGG-YiCnqVRQlVQlTVX_Q_O6OaCTLjk';
 
-const SQL_SETUP = `-- Ejecutar en Supabase → SQL Editor
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ── KML BOUNDARY ──
+const KML_COORDS = [[-106.474281696573,23.310770029970037],[-106.4735547248755,23.310106137807253],[-106.47211562881282,23.30878468895948],[-106.47089130638028,23.30759655993018],[-106.4702345629414,23.307114373756054],[-106.4690810964613,23.306228866000268],[-106.4671698223317,23.30479102427717],[-106.46477215193909,23.303080888299693],[-106.4637760297919,23.30219173543994],[-106.4619503498101,23.300334493562122],[-106.46017480850801,23.2983593075642],[-106.4583864627458,23.296413203909797],[-106.4558932759504,23.293585142169366],[-106.454675729693,23.29201301945953],[-106.4537190765734,23.29045886431883],[-106.4519979346496,23.287837398969284],[-106.4511148781497,23.28687491424535],[-106.4504603852583,23.286282714230868],[-106.4496981398471,23.285673003979962],[-106.4480673659066,23.28448541925374],[-106.4456479837874,23.28284908691693],[-106.4460838563978,23.28246181753648],[-106.44630382203839,23.28209221868344],[-106.44649004731009,23.281558527615438],[-106.44706701398847,23.279290144372485],[-106.4478277517746,23.275983196667145],[-106.44783406799502,23.275668363060255],[-106.4477778904493,23.27532434625123],[-106.4473112869633,23.274484010331715],[-106.4463608338451,23.27517897883686],[-106.44588131184078,23.275697921354425],[-106.4454196777517,23.276323194359794],[-106.4448922261685,23.27704464562547],[-106.44474587386831,23.27720778660694],[-106.44444687858751,23.276962955694653],[-106.4444359303935,23.276852634612],[-106.44454055257398,23.276680320147403],[-106.44453786592489,23.276416831767836],[-106.444477341374,23.276318318022536],[-106.4443606561379,23.276227651621767],[-106.44393085850288,23.27500308252367],[-106.4439884373736,23.274769603226797],[-106.44392815051009,23.274459840976885],[-106.4437294130039,23.2741318639596],[-106.44315532279768,23.274243820133865],[-106.4423791873172,23.27457663531413],[-106.441739455161,23.274809916434194],[-106.44126544067429,23.275527460778388],[-106.440888510878,23.276009421003728],[-106.4407595779562,23.276414232830977],[-106.44045203777729,23.27679778581802],[-106.4401443167604,23.27704501012135],[-106.4394470992507,23.277395602618764],[-106.43840600687061,23.27639460597108],[-106.43737527604301,23.275403390672498],[-106.4358800924608,23.273958517939075],[-106.4342776435397,23.27240658454933],[-106.43363550854032,23.27178378129521],[-106.430799859908,23.269010116667527],[-106.4297791732954,23.26799070071319],[-106.42944802103038,23.268265153389617],[-106.4290866435324,23.268583619899445],[-106.4278882983495,23.26960965563405],[-106.42727153358601,23.2701507258817],[-106.4265596132318,23.270773336600918],[-106.4256784424252,23.271533726894187],[-106.4248630104905,23.27224565205827],[-106.42623527445969,23.27320530274586],[-106.4262068196212,23.273637277732345],[-106.4260982663406,23.27442647179697],[-106.4257701489454,23.275818200431843],[-106.4233704164051,23.275321908330152],[-106.4218003491083,23.274997242164755],[-106.4195162457174,23.27434338593015],[-106.4192759345438,23.27536253359581],[-106.41881739541199,23.27746555636009],[-106.4187355464108,23.278030432209533],[-106.4187953176093,23.27837835914938],[-106.41896816559621,23.278840026208574],[-106.4193172499952,23.281238111681596],[-106.41970400457382,23.283095910224137],[-106.4199600378192,23.284326697193716],[-106.4181335290989,23.28459073071065],[-106.4184544048673,23.28595391498447],[-106.4177066492864,23.286054390922097],[-106.4177350145423,23.286160309405886],[-106.4171173433854,23.28620704392707],[-106.4166673961776,23.2862556517458],[-106.4164166275736,23.286546287517275],[-106.4162166563332,23.286513657764907],[-106.41613287911801,23.2866070511948],[-106.41467637350739,23.28687976444672],[-106.41450224608418,23.286877816924193],[-106.4143876551243,23.286982228565446],[-106.4140323993771,23.28716071989712],[-106.4137155963868,23.287099276330398],[-106.41389977977929,23.287757666502547],[-106.4139248959696,23.287847110858177],[-106.41409096133819,23.288334769520777],[-106.4141357123532,23.28846625175426],[-106.414166390899,23.289139090744207],[-106.41419052783881,23.289681123595404],[-106.4142078906023,23.290159774805893],[-106.41425862537702,23.29036879789086],[-106.4144271248538,23.29094126484314],[-106.41455455443962,23.291372982110065],[-106.4147765810006,23.291953815826457],[-106.4150559400124,23.292685064174055],[-106.4157038720904,23.294376031932423],[-106.41585695091469,23.29477922107687],[-106.4162846339251,23.295550539445014],[-106.4166935242019,23.296068974132773],[-106.4168484598206,23.296423136636704],[-106.41694167080719,23.29683639189172],[-106.4166335453282,23.29982588806894],[-106.4179578234896,23.30104453514985],[-106.4193678493974,23.302398387780755],[-106.42011343610939,23.30313215647281],[-106.4215043780678,23.30449933098577],[-106.4203305514864,23.305224197431002],[-106.4207768453559,23.306004337395844],[-106.4233901306627,23.30681801535575],[-106.4253380358534,23.308547116559197],[-106.43274785168978,23.31609375960778],[-106.44386486172709,23.327604425090765],[-106.4538477903615,23.33882824981133],[-106.4543753842316,23.33754669732961],[-106.4565847685228,23.335251871707907],[-106.4578951165104,23.331320113726992],[-106.4580408526735,23.330279176930507],[-106.45756373322381,23.328220736316556],[-106.45763179093198,23.327327152259816],[-106.4582411411904,23.326322083703335],[-106.46271588699229,23.32188411230062],[-106.47057930650152,23.314120957876504],[-106.47197831593948,23.31275150092439],[-106.474281696573,23.310770029970037]];
+
+// ── STATE ──
+let map, satelliteLayer, osmLayer, currentTile = 'osm';
+let territories = [];
+let selectedTerritoryId = null;
+let detailTerritoryId = null;
+let splitMode = false;
+let splitPoints = [];
+let splitPolyline = null;
+let splitMarkers = [];
+let pendingSplitPolygon = null;
+let kmlLayer = null;
+let territoryLayers = {};
+let activeSession = null;
+let sessionTimerInterval = null;
+let sessionStart = null;
+let routeLayer = null;
+let userMarker = null;
+
+// ── INIT ──
+async function init() {
+  initMap();
+  await ensureSchema();
+  await loadTerritories();
+  await loadHistory();
+}
+
+// ── MAP INIT ──
+function initMap() {
+  map = L.map('map', {
+    center: [23.295, -106.448],
+    zoom: 14,
+    zoomControl: true,
+  });
+
+  osmLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '© CartoDB © OpenStreetMap',
+    maxZoom: 19
+  }).addTo(map);
+
+  satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    attribution: '© Esri',
+    maxZoom: 19
+  });
+
+  // Draw KML boundary
+  const latlngs = KML_COORDS.map(c => [c[1], c[0]]);
+  kmlLayer = L.polygon(latlngs, {
+    color: '#f0c060',
+    weight: 2,
+    fillColor: '#f0c060',
+    fillOpacity: 0.05,
+    dashArray: '6,4',
+  }).addTo(map);
+
+  map.fitBounds(kmlLayer.getBounds(), { padding: [20, 20] });
+
+  map.on('click', onMapClick);
+  map.on('dblclick', onMapDblClick);
+  map.on('mousemove', onMapMousemove);
+}
+
+function toggleSatellite() {
+  if (currentTile === 'osm') {
+    map.removeLayer(osmLayer);
+    satelliteLayer.addTo(map);
+    currentTile = 'sat';
+  } else {
+    map.removeLayer(satelliteLayer);
+    osmLayer.addTo(map);
+    currentTile = 'osm';
+  }
+}
+
+function fitBounds() {
+  map.fitBounds(kmlLayer.getBounds(), { padding: [20, 20] });
+}
+
+// ── SUPABASE SCHEMA SETUP ──
+async function ensureSchema() {
+  // Try to create tables if they don't exist via RPC isn't reliable without custom functions.
+  // We'll rely on the tables being created manually or via migration.
+  // For first-time setup, we show a guide.
+  try {
+    const { error } = await db.from('territories').select('id').limit(1);
+    if (error && error.code === '42P01') {
+      showSetupGuide();
+    }
+  } catch(e) {}
+}
+
+function showSetupGuide() {
+  const sql = `
+-- Run this SQL in your Supabase SQL Editor:
+
 create table if not exists territories (
   id uuid primary key default gen_random_uuid(),
+  number integer not null,
   name text not null,
-  code text,
   description text,
-  start_date date,
-  end_date date,
-  status text default 'active',
-  lat double precision,
-  lng double precision,
+  polygon jsonb not null,
+  status text default 'pending',
   created_at timestamptz default now()
 );
 
-create table if not exists sessions (
+create table if not exists preaching_sessions (
   id uuid primary key default gen_random_uuid(),
   territory_id uuid references territories(id) on delete cascade,
-  session_date date not null,
-  start_lat double precision,
-  start_lng double precision,
-  end_lat double precision,
-  end_lng double precision,
-  tomorrow_lat double precision,
-  tomorrow_lng double precision,
+  started_at timestamptz not null,
+  ended_at timestamptz,
   notes text,
-  created_at timestamptz default now(),
-  unique(territory_id, session_date)
+  route_points jsonb default '[]',
+  created_at timestamptz default now()
 );
 
-create table if not exists history (
+create table if not exists territory_history (
   id uuid primary key default gen_random_uuid(),
-  type text,
-  message text,
-  territory_id uuid,
-  created_at timestamptz default now()
-);`;
+  territory_id uuid references territories(id) on delete cascade,
+  event text not null,
+  event_at timestamptz default now(),
+  notes text
+);
 
-let sb;
-let territories = [];
-let sessions = {};   // key: territoryId_date → session row
-let historyRows = [];
-let map, pointPickerMap;
-let pickMode = null;
-let markers = {}, routeLines = [], kmlLayers = [];
-let newTerritoryLatLng = null;
-let selectedTerritory = null;
-const BADGE_COLORS = ['badge-0','badge-1','badge-2','badge-3','badge-4','badge-5'];
-const MARKER_COLORS = { start: '#1D9E75', end: '#E24B4A', tomorrow: '#EF9F27' };
+alter table territories enable row level security;
+alter table preaching_sessions enable row level security;
+alter table territory_history enable row level security;
 
-// ===== INIT =====
-async function init() {
-  sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-  setLoading('Conectando con Supabase…');
-  try {
-    await loadAll();
-    hideLoading();
-    initMap();
-    renderTerritoryList();
-    refreshSessionSelects();
-  } catch(e) {
-    console.error(e);
-    if (e.message && e.message.includes('does not exist')) {
-      showSetupModal();
-    } else {
-      hideLoading();
-      showToast('Error al conectar: ' + e.message, true);
-    }
-  }
+create policy "allow all" on territories for all using (true) with check (true);
+create policy "allow all" on preaching_sessions for all using (true) with check (true);
+create policy "allow all" on territory_history for all using (true) with check (true);
+  `.trim();
+
+  const msg = `⚠️ Las tablas de Supabase no existen aún.\n\nCopia y ejecuta este SQL en tu Supabase SQL Editor:\n\n${sql}`;
+  const pre = document.createElement('pre');
+  pre.style.cssText = 'position:fixed;inset:0;background:#0f1117;color:#64ffb4;padding:30px;z-index:9999;overflow:auto;font-family:monospace;font-size:13px;white-space:pre-wrap;';
+  pre.innerHTML = `<button onclick="this.parentElement.remove()" style="float:right;background:#ff6b6b;border:none;color:#fff;padding:6px 14px;cursor:pointer;border-radius:4px">Cerrar</button>\n\n${msg}`;
+  document.body.appendChild(pre);
 }
 
-async function loadAll() {
-  setLoading('Cargando territorios…');
-  const { data: tData, error: tErr } = await sb.from('territories').select('*').order('created_at', { ascending: true });
-  if (tErr) throw tErr;
-  territories = tData || [];
-
-  setLoading('Cargando sesiones…');
-  const { data: sData, error: sErr } = await sb.from('sessions').select('*');
-  if (sErr) throw sErr;
-  sessions = {};
-  (sData || []).forEach(s => { sessions[`${s.territory_id}_${s.session_date}`] = s; });
-
-  setLoading('Cargando historial…');
-  const { data: hData, error: hErr } = await sb.from('history').select('*').order('created_at', { ascending: false }).limit(100);
-  if (hErr) throw hErr;
-  historyRows = hData || [];
-}
-
-async function syncAll() {
-  setSyncState('syncing');
-  try {
-    await loadAll();
-    renderTerritoryList();
-    refreshSessionSelects();
-    renderMap();
-    setSyncState('ok');
-    showToast('Sincronizado ✓');
-  } catch(e) {
-    setSyncState('error');
-    showToast('Error al sincronizar', true);
-  }
-}
-
-async function retryInit() {
-  closeModal('modal-setup');
-  setLoading('Reintentando conexión…');
-  try {
-    await loadAll();
-    hideLoading();
-    renderTerritoryList();
-    refreshSessionSelects();
-    showToast('Conectado correctamente ✓');
-  } catch(e) {
-    hideLoading();
-    showSetupModal();
-  }
-}
-
-// ===== SETUP MODAL =====
-function showSetupModal() {
-  hideLoading();
-  document.getElementById('sql-block').textContent = SQL_SETUP;
-  openModal('modal-setup');
-}
-
-// ===== MAP =====
-function initMap() {
-  map = L.map('map').setView([20.97, -89.62], 12);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>', maxZoom: 19
-  }).addTo(map);
-  map.on('click', function(e) { if (pickMode) placeSessionPoint(pickMode, e.latlng); });
-  renderMap();
-}
-
-function renderMap() {
-  Object.values(markers).forEach(m => { try { map.removeLayer(m); } catch(e){} });
-  routeLines.forEach(l => { try { map.removeLayer(l); } catch(e){} });
-  markers = {}; routeLines = [];
-
-  const today = todayKey();
-  territories.forEach((t, i) => {
-    if (!t.lat) return;
-    const color = t.status === 'done' ? '#888' : '#185FA5';
-    const icon = L.divIcon({
-      className: '',
-      html: `<div style="background:${color};color:white;border-radius:6px;padding:3px 7px;font-size:11px;font-weight:600;font-family:DM Sans,sans-serif;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,0.2)">${t.code || t.name.substring(0,6)}</div>`,
-      iconAnchor: [0, 0]
-    });
-    const m = L.marker([t.lat, t.lng], { icon }).addTo(map);
-    m.bindPopup(`<b>${t.name}</b><br>${t.description || ''}<br><small>${t.status==='done'?'✅ Completado':'🟦 Activo'}</small>`);
-    m.on('click', () => openTerritoryDetail(t.id));
-    markers[t.id] = m;
-
-    const session = sessions[`${t.id}_${today}`];
-    if (session) {
-      const pts = [
-        { la: 'start_lat', lo: 'start_lng', color: MARKER_COLORS.start, label: '▶', name: 'Inicio hoy' },
-        { la: 'end_lat', lo: 'end_lng', color: MARKER_COLORS.end, label: '⏹', name: 'Fin hoy' },
-        { la: 'tomorrow_lat', lo: 'tomorrow_lng', color: MARKER_COLORS.tomorrow, label: '⏩', name: 'Mañana' }
-      ];
-      pts.forEach(p => {
-        if (!session[p.la]) return;
-        const icon = L.divIcon({
-          className: '',
-          html: `<div style="background:${p.color};width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;box-shadow:0 2px 6px rgba(0,0,0,0.25);border:2px solid white;">${p.label}</div>`,
-          iconAnchor: [14, 14]
-        });
-        const mk = L.marker([session[p.la], session[p.lo]], { icon }).addTo(map);
-        mk.bindPopup(`<b>${p.name}</b><br>${t.name}`);
-        markers[`${t.id}_${p.la}`] = mk;
-      });
-      if (session.start_lat && session.end_lat) {
-        const l = L.polyline([[session.start_lat, session.start_lng],[session.end_lat, session.end_lng]], { color: MARKER_COLORS.end, weight: 2.5, dashArray: '6 4' }).addTo(map);
-        routeLines.push(l);
-      }
-      if (session.end_lat && session.tomorrow_lat) {
-        const l = L.polyline([[session.end_lat, session.end_lng],[session.tomorrow_lat, session.tomorrow_lng]], { color: MARKER_COLORS.tomorrow, weight: 2, dashArray: '4 6' }).addTo(map);
-        routeLines.push(l);
-      }
-    }
-  });
-}
-
-function fitAllTerritories() {
-  const pts = territories.filter(t => t.lat).map(t => [t.lat, t.lng]);
-  if (pts.length === 0) { showToast('No hay territorios con ubicación'); return; }
-  if (pts.length === 1) { map.setView(pts[0], 14); return; }
-  map.fitBounds(pts, { padding: [40, 40] });
-}
-
-// ===== TERRITORY CRUD =====
-function openNewTerritoryModal() {
-  selectedTerritory = null;
-  document.getElementById('modal-territory-title').textContent = 'Nuevo Territorio';
-  document.getElementById('t-name').value = '';
-  document.getElementById('t-code').value = '';
-  document.getElementById('t-description').value = '';
-  document.getElementById('t-start-date').value = todayKey();
-  document.getElementById('point-coords-display').textContent = 'Haz clic en el mapa para centrar el territorio';
-  newTerritoryLatLng = null;
-  openModal('modal-territory');
-  setTimeout(initPointPickerMap, 300);
-}
-
-function initPointPickerMap() {
-  if (pointPickerMap) { try { pointPickerMap.remove(); } catch(e){} pointPickerMap = null; }
-  const el = document.getElementById('point-map');
-  el._leaflet_id = null;
-  pointPickerMap = L.map('point-map').setView([20.97, -89.62], 12);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(pointPickerMap);
-  let pickerMarker = null;
-  pointPickerMap.on('click', function(e) {
-    if (pickerMarker) pointPickerMap.removeLayer(pickerMarker);
-    pickerMarker = L.marker(e.latlng).addTo(pointPickerMap);
-    newTerritoryLatLng = e.latlng;
-    document.getElementById('point-coords-display').textContent = `Lat: ${e.latlng.lat.toFixed(5)}, Lng: ${e.latlng.lng.toFixed(5)}`;
-  });
-}
-
-async function saveTerritory() {
-  const name = document.getElementById('t-name').value.trim();
-  if (!name) { showToast('Ingresa el nombre del territorio'); return; }
-  const btn = document.getElementById('btn-save-territory');
-  btn.disabled = true; btn.textContent = 'Guardando…';
-  setSyncState('syncing');
-  const payload = {
-    name,
-    code: document.getElementById('t-code').value.trim() || null,
-    description: document.getElementById('t-description').value.trim() || null,
-    start_date: document.getElementById('t-start-date').value || null,
-    status: 'active',
-    lat: newTerritoryLatLng ? newTerritoryLatLng.lat : null,
-    lng: newTerritoryLatLng ? newTerritoryLatLng.lng : null,
-  };
-  try {
-    const { data, error } = await sb.from('territories').insert(payload).select().single();
-    if (error) throw error;
-    territories.push(data);
-    await addHistoryEntry('territory_created', `Territorio creado: ${name}`, data.id);
-    closeModal('modal-territory');
-    renderTerritoryList();
-    refreshSessionSelects();
-    renderMap();
-    setSyncState('ok');
-    showToast('Territorio guardado ✓');
-  } catch(e) {
-    setSyncState('error');
-    showToast('Error al guardar: ' + e.message, true);
-  }
-  btn.disabled = false; btn.textContent = 'Guardar territorio';
-}
-
-async function deleteCurrentTerritory() {
-  if (!selectedTerritory) return;
-  if (!confirm(`¿Eliminar "${selectedTerritory.name}"? Esta acción no se puede deshacer.`)) return;
-  setSyncState('syncing');
-  const { error } = await sb.from('territories').delete().eq('id', selectedTerritory.id);
-  if (error) { showToast('Error al eliminar', true); setSyncState('error'); return; }
-  territories = territories.filter(t => t.id !== selectedTerritory.id);
-  closeModal('modal-detail');
+// ── LOAD TERRITORIES ──
+async function loadTerritories() {
+  const { data, error } = await db.from('territories').select('*').order('number');
+  if (error) { toast('Error al cargar territorios', 'error'); return; }
+  territories = data || [];
   renderTerritoryList();
-  refreshSessionSelects();
-  renderMap();
-  setSyncState('ok');
-  showToast('Territorio eliminado');
+  renderTerritoryLayers();
+  updateStats();
+  populateTerritoryDropdowns();
 }
 
-async function markTerritoryComplete() {
-  if (!selectedTerritory) return;
-  setSyncState('syncing');
-  const endDate = todayKey();
-  const { error } = await sb.from('territories').update({ status: 'done', end_date: endDate }).eq('id', selectedTerritory.id);
-  if (error) { showToast('Error al actualizar', true); setSyncState('error'); return; }
-  const idx = territories.findIndex(t => t.id === selectedTerritory.id);
-  if (idx > -1) { territories[idx].status = 'done'; territories[idx].end_date = endDate; }
-  await addHistoryEntry('territory_done', `Territorio completado: ${selectedTerritory.name}`, selectedTerritory.id);
-  closeModal('modal-detail');
-  renderTerritoryList();
-  renderMap();
-  setSyncState('ok');
-  showToast('Territorio completado ✓');
-}
-
-function openTerritoryDetail(id) {
-  const t = territories.find(x => x.id === id);
-  if (!t) return;
-  selectedTerritory = t;
-  document.getElementById('detail-title').textContent = t.code ? `${t.code} — ${t.name}` : t.name;
-  const sessCount = Object.keys(sessions).filter(k => k.startsWith(t.id + '_')).length;
-  document.getElementById('detail-body').innerHTML = `
-    <div style="display:grid;gap:10px;">
-      ${t.description ? `<p style="font-size:13px;color:var(--gray-600)">${t.description}</p>` : ''}
-      <div class="session-stat"><div class="session-stat-icon">📅</div><div><div class="session-stat-label">Fecha inicio</div><div class="session-stat-value">${formatDate(t.start_date) || '—'}</div></div></div>
-      ${t.end_date ? `<div class="session-stat"><div class="session-stat-icon">🏁</div><div><div class="session-stat-label">Fecha fin</div><div class="session-stat-value">${formatDate(t.end_date)}</div></div></div>` : ''}
-      <div class="session-stat"><div class="session-stat-icon">📊</div><div><div class="session-stat-label">Sesiones registradas</div><div class="session-stat-value">${sessCount}</div></div></div>
-      ${t.lat ? `<div class="session-stat"><div class="session-stat-icon">📌</div><div><div class="session-stat-label">Coordenadas</div><div class="session-stat-value" style="font-size:12px;">${t.lat.toFixed(4)}, ${t.lng.toFixed(4)}</div></div></div>` : ''}
-    </div>`;
-  openModal('modal-detail');
-  if (t.lat && map) map.setView([t.lat, t.lng], 15);
-}
-
-// ===== SESSION =====
-function refreshSessionSelects() {
-  const sel = document.getElementById('active-territory-select');
-  const prev = sel.value;
-  sel.innerHTML = '<option value="">-- Seleccionar --</option>';
-  territories.filter(t => t.status !== 'done').forEach(t => {
-    const opt = document.createElement('option');
-    opt.value = t.id; opt.textContent = (t.code ? t.code + ' — ' : '') + t.name;
-    sel.appendChild(opt);
-  });
-  if (prev) sel.value = prev;
-}
-
-function onActiveTerritoryChange() {
-  const id = document.getElementById('active-territory-select').value;
-  if (!id) { document.getElementById('session-info').style.display = 'none'; return; }
-  document.getElementById('session-info').style.display = 'block';
-  document.getElementById('today-route-card').style.display = 'block';
-  const session = sessions[`${id}_${todayKey()}`] || {};
-  document.getElementById('session-start-display').textContent = fmtCoord(session.start_lat, session.start_lng);
-  document.getElementById('session-end-display').textContent = fmtCoord(session.end_lat, session.end_lng);
-  document.getElementById('session-tomorrow-display').textContent = fmtCoord(session.tomorrow_lat, session.tomorrow_lng);
-  document.getElementById('session-notes').value = session.notes || '';
-  updateProgress(id);
-}
-
-function fmtCoord(lat, lng) {
-  if (!lat) return 'Sin marcar';
-  return `${parseFloat(lat).toFixed(5)}, ${parseFloat(lng).toFixed(5)}`;
-}
-
-function startPickPoint(type) {
-  const id = document.getElementById('active-territory-select').value;
-  if (!id) { showToast('Selecciona un territorio primero'); return; }
-  pickMode = type;
-  const labels = { start: 'inicio', end: 'fin', tomorrow: 'continuar mañana' };
-  const banner = document.getElementById('pick-mode-banner');
-  banner.style.display = 'block';
-  banner.textContent = `📌 Haz clic en el mapa para marcar el punto de ${labels[type]}…`;
-  map.getContainer().style.cursor = 'crosshair';
-}
-
-async function placeSessionPoint(type, latlng) {
-  pickMode = null;
-  map.getContainer().style.cursor = '';
-  document.getElementById('pick-mode-banner').style.display = 'none';
-  const id = document.getElementById('active-territory-select').value;
-  const today = todayKey();
-  const key = `${id}_${today}`;
-  const existing = sessions[key] || {};
-  const updates = {
-    territory_id: id,
-    session_date: today,
-    start_lat: existing.start_lat || null,
-    start_lng: existing.start_lng || null,
-    end_lat: existing.end_lat || null,
-    end_lng: existing.end_lng || null,
-    tomorrow_lat: existing.tomorrow_lat || null,
-    tomorrow_lng: existing.tomorrow_lng || null,
-    notes: existing.notes || null,
-  };
-  const colMap = { start: ['start_lat','start_lng'], end: ['end_lat','end_lng'], tomorrow: ['tomorrow_lat','tomorrow_lng'] };
-  updates[colMap[type][0]] = latlng.lat;
-  updates[colMap[type][1]] = latlng.lng;
-
-  setSyncState('syncing');
-  const { data, error } = await sb.from('sessions').upsert(updates, { onConflict: 'territory_id,session_date' }).select().single();
-  if (error) { showToast('Error al guardar punto', true); setSyncState('error'); return; }
-  sessions[key] = data;
-
-  const t = territories.find(x => x.id === id);
-  const labels = { start: 'Inicio marcado', end: 'Fin marcado', tomorrow: 'Continuación marcada' };
-  await addHistoryEntry('session_point', `${labels[type]} en ${t ? t.name : 'territorio'}`, id);
-
-  const displayMap = { start: 'session-start-display', end: 'session-end-display', tomorrow: 'session-tomorrow-display' };
-  document.getElementById(displayMap[type]).textContent = fmtCoord(latlng.lat, latlng.lng);
-  renderMap();
-  updateProgress(id);
-  setSyncState('ok');
-  showToast('Punto guardado en Supabase ✓');
-}
-
-async function saveSessionNotes() {
-  const id = document.getElementById('active-territory-select').value;
-  if (!id) return;
-  const today = todayKey();
-  const key = `${id}_${today}`;
-  const existing = sessions[key] || {};
-  const notes = document.getElementById('session-notes').value;
-  setSyncState('syncing');
-  const payload = { territory_id: id, session_date: today, notes, ...existing };
-  const { data, error } = await sb.from('sessions').upsert(payload, { onConflict: 'territory_id,session_date' }).select().single();
-  if (error) { showToast('Error al guardar notas', true); setSyncState('error'); return; }
-  sessions[key] = data;
-  setSyncState('ok');
-  showToast('Notas guardadas ✓');
-}
-
-function showTodayRoute() {
-  const id = document.getElementById('active-territory-select').value;
-  if (!id) return;
-  const session = sessions[`${id}_${todayKey()}`];
-  if (!session) { showToast('No hay puntos marcados hoy'); return; }
-  const pts = [];
-  if (session.start_lat) pts.push([session.start_lat, session.start_lng]);
-  if (session.end_lat) pts.push([session.end_lat, session.end_lng]);
-  if (session.tomorrow_lat) pts.push([session.tomorrow_lat, session.tomorrow_lng]);
-  if (pts.length < 2) { showToast('Marca al menos 2 puntos para ver la ruta'); return; }
-  renderMap();
-  const line = L.polyline(pts, { color: '#1D9E75', weight: 3, dashArray: '6 4' }).addTo(map);
-  routeLines.push(line);
-  map.fitBounds(line.getBounds(), { padding: [40, 40] });
-}
-
-function updateProgress(id) {
-  const count = Object.keys(sessions).filter(k => k.startsWith(id + '_')).length;
-  const pct = Math.min(count * 10, 100);
-  document.getElementById('progress-fill').style.width = pct + '%';
-  document.getElementById('progress-pct').textContent = `${count} sesión${count !== 1 ? 'es' : ''}`;
-}
-
-// ===== HISTORY =====
-async function addHistoryEntry(type, message, territoryId) {
-  const { data } = await sb.from('history').insert({ type, message, territory_id: territoryId }).select().single();
-  if (data) historyRows.unshift(data);
-}
-
-function renderHistory() {
-  const log = document.getElementById('history-log');
-  if (historyRows.length === 0) {
-    log.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📅</div><p>El historial aparecerá aquí conforme registres actividad.</p></div>`;
-  } else {
-    const colors = { territory_created: '#1D9E75', territory_done: '#185FA5', session_point: '#BA7517' };
-    log.innerHTML = historyRows.slice(0, 60).map(h => `
-      <div class="log-item">
-        <div class="log-dot" style="background:${colors[h.type]||'#888'}"></div>
-        <div><div class="log-text">${h.message}</div><div class="log-date">${formatDateTime(h.created_at)}</div></div>
-      </div>`).join('');
-  }
-  const done = territories.filter(t => t.status === 'done');
-  document.getElementById('completed-list').innerHTML = done.length === 0
-    ? `<p style="font-size:12px;color:var(--gray-600);">Ninguno completado aún.</p>`
-    : done.map(t => `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--gray-100);font-size:13px;"><span>✅ ${t.name}</span><span style="font-size:11px;color:var(--gray-600)">${formatDate(t.end_date)}</span></div>`).join('');
-}
-
-// ===== RENDER LIST =====
 function renderTerritoryList() {
-  const container = document.getElementById('territory-list-container');
-  if (territories.length === 0) {
-    container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">🗺️</div><p>Aún no hay territorios.<br>Crea el primero para comenzar.</p></div>`;
+  const list = document.getElementById('territory-list');
+  if (!territories.length) {
+    list.innerHTML = '<div class="empty-state">No hay territorios aún.<br>Usa "✂ Dividir territorio" en el mapa y luego "+ Nuevo" para crear el primero.</div>';
     return;
   }
-  container.innerHTML = `<div class="card" style="padding:0 14px;">${
-    territories.map((t, i) => `
-      <div class="territory-item" onclick="openTerritoryDetail('${t.id}')">
-        <div class="t-badge ${BADGE_COLORS[i % BADGE_COLORS.length]}">${(t.code || t.name).substring(0,2).toUpperCase()}</div>
-        <div class="t-info">
-          <div class="t-name">${t.name}${t.code ? ` <span style="color:var(--gray-600);font-size:11px;">${t.code}</span>` : ''}</div>
-          <div class="t-date">Desde: ${formatDate(t.start_date)||'Sin fecha'}${t.end_date ? ` · Fin: ${formatDate(t.end_date)}`  :''}</div>
-        </div>
-        <div class="t-status ${t.status==='done'?'status-done':'status-active'}">${t.status==='done'?'Completado':'Activo'}</div>
-      </div>`).join('')
-  }</div>`;
+  list.innerHTML = territories.map(t => {
+    const statusLabel = { pending: 'Pendiente', active: 'En progreso', completed: 'Completado' }[t.status] || t.status;
+    const statusClass = { pending: 'status-pending', active: 'status-active', completed: 'status-completed' }[t.status] || 'status-pending';
+    return `
+    <div class="territory-card ${selectedTerritoryId === t.id ? 'selected' : ''}" onclick="selectTerritory('${t.id}')">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+        <span style="font-family:'DM Mono';font-size:11px;color:var(--text3)">#${t.number}</span>
+        <div class="tc-name">${t.name}</div>
+        <span class="tag ${t.status === 'completed' ? 'tag-green' : t.status === 'active' ? 'tag-blue' : 'tag-orange'}" style="margin-left:auto">${statusLabel}</span>
+      </div>
+      ${t.description ? `<div style="font-size:13px;color:var(--text2);margin-bottom:6px">${t.description}</div>` : ''}
+      <div style="font-size:12px;color:var(--text3)"><span class="status-dot ${statusClass}"></span>${statusLabel}</div>
+    </div>`;
+  }).join('');
 }
 
-// ===== TABS =====
-function switchTab(tab) {
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-  const tabs = ['territorios','sesion','historial'];
-  document.querySelectorAll('.tab')[tabs.indexOf(tab)].classList.add('active');
-  document.getElementById('panel-' + tab).classList.add('active');
-  if (tab === 'sesion') refreshSessionSelects();
-  if (tab === 'historial') renderHistory();
+function renderTerritoryLayers() {
+  // Clear old
+  Object.values(territoryLayers).forEach(l => map.removeLayer(l));
+  territoryLayers = {};
+
+  territories.forEach(t => {
+    if (!t.polygon || !t.polygon.coordinates) return;
+    const coords = t.polygon.coordinates[0];
+    const latlngs = coords.map(c => [c[1], c[0]]);
+
+    const color = t.status === 'completed' ? '#64ffb4' :
+                  t.status === 'active' ? '#4a9eff' : '#f0c060';
+
+    const layer = L.polygon(latlngs, {
+      color: color,
+      weight: 2,
+      fillColor: color,
+      fillOpacity: t.status === 'completed' ? 0.15 : 0.07,
+    }).addTo(map);
+
+    layer.bindPopup(`
+      <strong>#${t.number} ${t.name}</strong><br>
+      Estado: ${t.status}<br>
+      <a href="#" onclick="openTerritoryDetail('${t.id}');return false;" style="color:var(--accent)">Ver detalle</a>
+    `);
+
+    layer.on('click', () => selectTerritory(t.id));
+    territoryLayers[t.id] = layer;
+  });
 }
 
-// ===== HELPERS =====
-function todayKey() { return new Date().toISOString().split('T')[0]; }
-function formatDate(d) { if (!d) return ''; const p = d.split('-'); return `${p[2]}/${p[1]}/${p[0]}`; }
-function formatDateTime(iso) {
-  if (!iso) return '';
-  const d = new Date(iso);
-  return d.toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'}) + ' ' + d.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
-}
-function setLoading(msg) { document.getElementById('loading-overlay').classList.remove('hidden'); document.getElementById('loading-msg').textContent = msg; }
-function hideLoading() { document.getElementById('loading-overlay').classList.add('hidden'); }
-function openModal(id) { document.getElementById(id).classList.add('open'); }
-function closeModal(id) { document.getElementById(id).classList.remove('open'); }
-function setSyncState(state) {
-  const dot = document.getElementById('sync-dot');
-  dot.className = 'sync-dot' + (state === 'syncing' ? ' syncing' : state === 'error' ? ' error' : '');
-}
-function showToast(msg, isError) {
-  const t = document.getElementById('toast');
-  t.textContent = (isError ? '⚠️ ' : '✓ ') + msg;
-  t.className = 'toast' + (isError ? ' error' : '') + ' show';
-  setTimeout(() => { t.className = 'toast' + (isError ? ' error' : ''); }, 3000);
+function updateStats() {
+  document.getElementById('stat-total').textContent = territories.length;
+  document.getElementById('stat-active').textContent = territories.filter(t => t.status === 'active').length;
+  document.getElementById('stat-done').textContent = territories.filter(t => t.status === 'completed').length;
 }
 
+function populateTerritoryDropdowns() {
+  const dd = document.getElementById('preaching-territory-dd');
+  const hf = document.getElementById('history-filter');
+  const opts = territories.map(t => `<option value="${t.id}">#${t.number} ${t.name}</option>`).join('');
+  dd.innerHTML = '<option value="">— Seleccionar territorio —</option>' + opts;
+  hf.innerHTML = '<option value="">Todos</option>' + opts;
+}
 
-// ===== KML =====
-function loadKMLFile(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    try {
-      const kmlText = e.target.result;
-      const parser = new DOMParser();
-      const kmlDoc = parser.parseFromString(kmlText, 'text/xml');
-      const parseError = kmlDoc.querySelector('parsererror');
-      if (parseError) { showToast('KML inválido o malformado', true); return; }
-      const layerGroup = parseKML(kmlDoc, file.name);
-      if (!layerGroup) { showToast('No se encontraron geometrías en el KML', true); return; }
-      layerGroup.addTo(map);
-      const bounds = layerGroup.getBounds();
-      if (bounds.isValid()) map.fitBounds(bounds, { padding: [30, 30] });
-      kmlLayers.push({ name: file.name, layer: layerGroup });
-      renderKMLList();
-      showToast(`KML "${file.name}" cargado ✓`);
-    } catch(err) {
-      showToast('Error al leer KML: ' + err.message, true);
+function selectTerritory(id) {
+  selectedTerritoryId = id;
+  renderTerritoryList();
+  // Zoom to territory
+  const layer = territoryLayers[id];
+  if (layer) map.fitBounds(layer.getBounds(), { padding: [40, 40] });
+  openTerritoryDetail(id);
+}
+
+// ── TERRITORY DETAIL ──
+async function openTerritoryDetail(id) {
+  detailTerritoryId = id;
+  const t = territories.find(x => x.id === id);
+  if (!t) return;
+
+  document.getElementById('modal-detail-title').textContent = `#${t.number} — ${t.name}`;
+
+  // Load sessions
+  const { data: sessions } = await db.from('preaching_sessions')
+    .select('*').eq('territory_id', id).order('started_at', { ascending: false });
+
+  const totalSessions = sessions ? sessions.length : 0;
+  const completedSessions = sessions ? sessions.filter(s => s.ended_at).length : 0;
+  const lastSession = sessions && sessions[0];
+
+  document.getElementById('modal-detail-content').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+      <div class="stat-chip"><div class="val">${totalSessions}</div><div class="lbl">Sesiones</div></div>
+      <div class="stat-chip"><div class="val">${completedSessions}</div><div class="lbl">Completadas</div></div>
+    </div>
+    <div style="margin-bottom:10px">
+      <span class="tag ${t.status === 'completed' ? 'tag-green' : t.status === 'active' ? 'tag-blue' : 'tag-orange'}">
+        ${{ pending:'Pendiente', active:'En progreso', completed:'Completado' }[t.status]}
+      </span>
+    </div>
+    ${t.description ? `<p style="font-size:14px;color:var(--text2);margin-bottom:12px">${t.description}</p>` : ''}
+    ${lastSession ? `<p style="font-size:13px;color:var(--text2)">Última sesión: ${new Date(lastSession.started_at).toLocaleDateString('es-MX')}</p>` : ''}
+    <div class="divider-line"></div>
+    <div style="margin-bottom:10px">
+      <label style="font-family:'DM Mono';font-size:11px;color:var(--text2);display:block;margin-bottom:6px">CAMBIAR ESTADO</label>
+      <select id="detail-status-sel" style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px;color:var(--text);width:100%">
+        <option value="pending" ${t.status==='pending'?'selected':''}>Pendiente</option>
+        <option value="active" ${t.status==='active'?'selected':''}>En progreso</option>
+        <option value="completed" ${t.status==='completed'?'selected':''}>Completado</option>
+      </select>
+      <button class="btn btn-ghost" style="margin-top:8px;width:100%" onclick="updateTerritoryStatus()">Actualizar estado</button>
+    </div>
+  `;
+
+  openModal('modal-territory-detail');
+}
+
+async function updateTerritoryStatus() {
+  const status = document.getElementById('detail-status-sel').value;
+  const { error } = await db.from('territories').update({ status }).eq('id', detailTerritoryId);
+  if (error) { toast('Error al actualizar', 'error'); return; }
+
+  // Log history
+  await db.from('territory_history').insert({
+    territory_id: detailTerritoryId,
+    event: `Estado cambiado a: ${status}`,
+    event_at: new Date().toISOString()
+  });
+
+  toast('Estado actualizado', 'success');
+  await loadTerritories();
+  closeModal('modal-territory-detail');
+}
+
+async function deleteTerritory() {
+  if (!confirm('¿Eliminar este territorio? Esta acción no se puede deshacer.')) return;
+  const { error } = await db.from('territories').delete().eq('id', detailTerritoryId);
+  if (error) { toast('Error al eliminar', 'error'); return; }
+  toast('Territorio eliminado');
+  await loadTerritories();
+  closeModal('modal-territory-detail');
+}
+
+function startPreachingFromDetail() {
+  const t = territories.find(x => x.id === detailTerritoryId);
+  closeModal('modal-territory-detail');
+  showPanel('predicacion');
+  document.getElementById('preaching-territory-dd').value = detailTerritoryId;
+  onPreachingTerritoryChange();
+}
+
+// ── SPLIT MODE ──
+function toggleSplitMode() {
+  splitMode = !splitMode;
+  document.getElementById('btn-split-mode').classList.toggle('active', splitMode);
+  document.getElementById('btn-confirm-split').style.display = splitMode ? '' : 'none';
+  document.getElementById('btn-cancel-split').style.display = splitMode ? '' : 'none';
+  document.getElementById('split-hint').classList.toggle('show', splitMode);
+
+  if (!splitMode) cancelSplit();
+  else {
+    splitPoints = [];
+    map.getContainer().style.cursor = 'crosshair';
+  }
+}
+
+function onMapClick(e) {
+  if (!splitMode) return;
+  const pt = [e.latlng.lng, e.latlng.lat];
+  splitPoints.push(pt);
+
+  // Draw marker
+  const m = L.circleMarker([e.latlng.lat, e.latlng.lng], {
+    radius: 6,
+    color: '#4a9eff',
+    fillColor: '#4a9eff',
+    fillOpacity: 1,
+    weight: 2
+  }).addTo(map);
+  splitMarkers.push(m);
+
+  // Draw polyline
+  if (splitPolyline) map.removeLayer(splitPolyline);
+  if (splitPoints.length > 1) {
+    const lls = splitPoints.map(p => [p[1], p[0]]);
+    splitPolyline = L.polyline(lls, { color: '#4a9eff', weight: 2, dashArray: '5,4' }).addTo(map);
+  }
+}
+
+function onMapDblClick(e) {
+  if (!splitMode) return;
+  // Close polygon
+  if (splitPoints.length >= 3) {
+    splitPoints.push(splitPoints[0]); // close
+    showSplitPreview();
+  }
+}
+
+function onMapMousemove(e) {
+  if (!splitMode || !splitPoints.length) return;
+}
+
+function showSplitPreview() {
+  if (pendingSplitPolygon) map.removeLayer(pendingSplitPolygon);
+  const lls = splitPoints.map(p => [p[1], p[0]]);
+  pendingSplitPolygon = L.polygon(lls, {
+    color: '#4a9eff',
+    weight: 2,
+    fillColor: '#4a9eff',
+    fillOpacity: 0.2
+  }).addTo(map);
+  splitMode = false;
+  document.getElementById('btn-split-mode').classList.remove('active');
+  document.getElementById('split-hint').classList.remove('show');
+  map.getContainer().style.cursor = '';
+  showInfo('Polígono listo. Abre "+ Nuevo" para guardar como territorio.');
+}
+
+function confirmSplit() {
+  if (splitPoints.length < 3) { toast('Necesitas al menos 3 puntos', 'error'); return; }
+  showSplitPreview();
+}
+
+function cancelSplit() {
+  splitMode = false;
+  splitPoints = [];
+  splitMarkers.forEach(m => map.removeLayer(m));
+  splitMarkers = [];
+  if (splitPolyline) { map.removeLayer(splitPolyline); splitPolyline = null; }
+  if (pendingSplitPolygon) { map.removeLayer(pendingSplitPolygon); pendingSplitPolygon = null; }
+  document.getElementById('btn-split-mode').classList.remove('active');
+  document.getElementById('btn-confirm-split').style.display = 'none';
+  document.getElementById('btn-cancel-split').style.display = 'none';
+  document.getElementById('split-hint').classList.remove('show');
+  map.getContainer().style.cursor = '';
+}
+
+// ── NEW TERRITORY ──
+function openNewTerritoryModal() {
+  openModal('modal-new-territory');
+}
+
+async function saveNewTerritory() {
+  const num = parseInt(document.getElementById('new-territory-num').value);
+  const name = document.getElementById('new-territory-name').value.trim();
+  const desc = document.getElementById('new-territory-desc').value.trim();
+
+  if (!num || !name) { toast('Completa número y nombre', 'error'); return; }
+
+  // Use drawn polygon or full KML
+  let polygon;
+  if (splitPoints.length >= 3) {
+    const coords = [...splitPoints];
+    if (coords[0][0] !== coords[coords.length-1][0]) coords.push(coords[0]);
+    polygon = { type: 'Polygon', coordinates: [coords] };
+  } else {
+    const coords = [...KML_COORDS];
+    polygon = { type: 'Polygon', coordinates: [coords] };
+  }
+
+  const { error } = await db.from('territories').insert({
+    number: num, name, description: desc || null,
+    polygon, status: 'pending'
+  });
+
+  if (error) { toast('Error al guardar: ' + error.message, 'error'); return; }
+
+  // Log history
+  const { data: inserted } = await db.from('territories').select('id').eq('number', num).eq('name', name).single();
+  if (inserted) {
+    await db.from('territory_history').insert({
+      territory_id: inserted.id,
+      event: 'Territorio creado',
+      event_at: new Date().toISOString()
+    });
+  }
+
+  toast('Territorio guardado', 'success');
+  cancelSplit();
+  closeModal('modal-new-territory');
+  document.getElementById('new-territory-num').value = '';
+  document.getElementById('new-territory-name').value = '';
+  document.getElementById('new-territory-desc').value = '';
+  await loadTerritories();
+}
+
+// ── PREDICACIÓN ──
+function onPreachingTerritoryChange() {
+  const id = document.getElementById('preaching-territory-dd').value;
+  if (!id) {
+    document.getElementById('preaching-session-panel').style.display = 'none';
+    return;
+  }
+  document.getElementById('preaching-session-panel').style.display = '';
+  selectedTerritoryId = id;
+
+  // Zoom to territory
+  const layer = territoryLayers[id];
+  if (layer) map.fitBounds(layer.getBounds(), { padding: [40, 40] });
+  renderPreachingProgress(id);
+}
+
+async function renderPreachingProgress(id) {
+  const t = territories.find(x => x.id === id);
+  if (!t) return;
+
+  const { data: sessions } = await db.from('preaching_sessions')
+    .select('*').eq('territory_id', id).order('started_at');
+
+  const completed = sessions ? sessions.filter(s => s.ended_at).length : 0;
+  const total = sessions ? sessions.length : 0;
+  const pct = total ? Math.round(completed / total * 100) : 0;
+
+  document.getElementById('preaching-progress').innerHTML = `
+    <div style="font-size:13px;color:var(--text2);margin-bottom:6px">${completed} sesiones completadas de ${total}</div>
+    <div class="tc-progress"><div class="tc-progress-fill" style="width:${pct}%"></div></div>
+    <div style="font-size:12px;color:var(--text3);margin-top:4px">${pct}% completado</div>
+    <div style="margin-top:12px;font-size:13px;color:var(--text2)">Estado actual: <span class="tag ${t.status==='completed'?'tag-green':t.status==='active'?'tag-blue':'tag-orange'}">${{pending:'Pendiente',active:'En progreso',completed:'Completado'}[t.status]}</span></div>
+  `;
+
+  // Draw route points from sessions on map
+  if (routeLayer) { map.removeLayer(routeLayer); routeLayer = null; }
+  if (sessions && sessions.length) {
+    const allPoints = sessions.flatMap(s => (s.route_points || []));
+    if (allPoints.length > 1) {
+      const lls = allPoints.map(p => [p.lat, p.lng]);
+      routeLayer = L.polyline(lls, { color: '#64ffb4', weight: 2, opacity: 0.7 }).addTo(map);
     }
-    event.target.value = '';
-  };
-  reader.readAsText(file);
+  }
 }
 
-function parseKML(kmlDoc, filename) {
-  const group = L.featureGroup();
-  let count = 0;
+async function startSession() {
+  const id = document.getElementById('preaching-territory-dd').value;
+  if (!id) { toast('Selecciona un territorio', 'error'); return; }
 
-  // Style map: id -> {color, fillColor, weight, fillOpacity}
-  const styleMap = {};
-  kmlDoc.querySelectorAll('Style').forEach(style => {
-    const id = style.getAttribute('id');
-    if (!id) return;
-    const ls = style.querySelector('LineStyle');
-    const ps = style.querySelector('PolyStyle');
-    const is = style.querySelector('IconStyle');
-    styleMap['#' + id] = {
-      color: ls ? kmlColorToHex(ls.querySelector('color')?.textContent) : '#7F77DD',
-      weight: ls ? (parseFloat(ls.querySelector('width')?.textContent) || 2) : 2,
-      fillColor: ps ? kmlColorToHex(ps.querySelector('color')?.textContent) : '#7F77DD',
-      fillOpacity: ps ? 0.25 : 0,
-      iconColor: is ? kmlColorToHex(is.querySelector('color')?.textContent) : '#7F77DD',
-    };
+  sessionStart = new Date();
+  const { data, error } = await db.from('preaching_sessions').insert({
+    territory_id: id,
+    started_at: sessionStart.toISOString(),
+    route_points: []
+  }).select().single();
+
+  if (error) { toast('Error al iniciar sesión', 'error'); return; }
+
+  activeSession = data;
+  document.getElementById('btn-start-session').disabled = true;
+  document.getElementById('btn-end-session').disabled = false;
+
+  // Update territory status to active
+  await db.from('territories').update({ status: 'active' }).eq('id', id);
+  await db.from('territory_history').insert({
+    territory_id: id,
+    event: 'Predicación iniciada',
+    event_at: sessionStart.toISOString()
   });
 
-  // StyleMap (maps normal/highlight to Style)
-  const styleMapRef = {};
-  kmlDoc.querySelectorAll('StyleMap').forEach(sm => {
-    const id = sm.getAttribute('id');
-    if (!id) return;
-    sm.querySelectorAll('Pair').forEach(pair => {
-      if (pair.querySelector('key')?.textContent === 'normal') {
-        styleMapRef['#' + id] = pair.querySelector('styleUrl')?.textContent;
-      }
-    });
+  sessionTimerInterval = setInterval(updateTimer, 1000);
+  toast('Sesión iniciada', 'success');
+  await loadTerritories();
+}
+
+async function endSession() {
+  if (!activeSession) return;
+
+  clearInterval(sessionTimerInterval);
+  const endTime = new Date();
+  const { error } = await db.from('preaching_sessions').update({
+    ended_at: endTime.toISOString()
+  }).eq('id', activeSession.id);
+
+  if (error) { toast('Error al finalizar sesión', 'error'); return; }
+
+  const id = document.getElementById('preaching-territory-dd').value;
+  await db.from('territory_history').insert({
+    territory_id: id,
+    event: 'Predicación finalizada',
+    event_at: endTime.toISOString()
   });
 
-  function resolveStyle(styleUrl) {
-    if (!styleUrl) return {};
-    if (styleMapRef[styleUrl]) return styleMap[styleMapRef[styleUrl]] || {};
-    return styleMap[styleUrl] || {};
+  activeSession = null;
+  sessionStart = null;
+  document.getElementById('btn-start-session').disabled = false;
+  document.getElementById('btn-end-session').disabled = true;
+  document.getElementById('session-timer').textContent = '00:00:00';
+  document.getElementById('next-route-box').style.display = 'none';
+
+  toast('Sesión finalizada', 'success');
+  renderPreachingProgress(id);
+  await loadTerritories();
+}
+
+function updateTimer() {
+  if (!sessionStart) return;
+  const diff = Math.floor((Date.now() - sessionStart.getTime()) / 1000);
+  const h = String(Math.floor(diff / 3600)).padStart(2, '0');
+  const m = String(Math.floor(diff / 60) % 60).padStart(2, '0');
+  const s = String(diff % 60).padStart(2, '0');
+  document.getElementById('session-timer').textContent = `${h}:${m}:${s}`;
+}
+
+// ── GEOLOCATION ──
+async function getCurrentLocation() {
+  if (!navigator.geolocation) { toast('Geolocalización no disponible', 'error'); return; }
+  document.getElementById('location-result').textContent = 'Detectando ubicación…';
+
+  navigator.geolocation.getCurrentPosition(async pos => {
+    const lat = pos.coords.latitude;
+    const lng = pos.coords.longitude;
+
+    if (userMarker) map.removeLayer(userMarker);
+    userMarker = L.circleMarker([lat, lng], {
+      radius: 10,
+      color: '#fff',
+      fillColor: '#4a9eff',
+      fillOpacity: 1,
+      weight: 3
+    }).addTo(map).bindPopup('📍 Tu ubicación').openPopup();
+
+    map.panTo([lat, lng]);
+    document.getElementById('location-result').textContent = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+
+    // Save to session route
+    if (activeSession) {
+      const { data: session } = await db.from('preaching_sessions')
+        .select('route_points').eq('id', activeSession.id).single();
+      const pts = session ? (session.route_points || []) : [];
+      pts.push({ lat, lng, ts: new Date().toISOString() });
+      await db.from('preaching_sessions').update({ route_points: pts }).eq('id', activeSession.id);
+    }
+
+    // Find next route direction
+    findNextRoute(lat, lng);
+  }, err => {
+    document.getElementById('location-result').textContent = 'No se pudo obtener la ubicación';
+  });
+}
+
+function findNextRoute(lat, lng) {
+  const id = document.getElementById('preaching-territory-dd').value;
+  if (!id) return;
+  const t = territories.find(x => x.id === id);
+  if (!t || !t.polygon) return;
+
+  // Get polygon bounds and find which part hasn't been visited
+  const coords = t.polygon.coordinates[0];
+  const pts = coords.map(c => ({ lat: c[1], lng: c[0] }));
+
+  // Find nearest polygon vertex
+  let minDist = Infinity, nearestIdx = 0;
+  pts.forEach((p, i) => {
+    const d = haversine(lat, lng, p.lat, p.lng);
+    if (d < minDist) { minDist = d; nearestIdx = i; }
+  });
+
+  // Suggest next direction along boundary
+  const nextIdx = (nearestIdx + 1) % pts.length;
+  const nextPt = pts[nextIdx];
+  const bearing = calcBearing(lat, lng, nextPt.lat, nextPt.lng);
+  const bearingName = bearingToName(bearing);
+  const dist = haversine(lat, lng, nextPt.lat, nextPt.lng);
+
+  document.getElementById('next-route-box').style.display = '';
+  document.getElementById('next-route-info').innerHTML = `
+    <div style="margin-bottom:6px">Dirección sugerida: <strong style="color:var(--accent2)">${bearingName}</strong></div>
+    <div style="margin-bottom:6px">Rumbo: <span style="font-family:'DM Mono'">${Math.round(bearing)}°</span></div>
+    <div>Siguiente punto del perímetro: <span style="font-family:'DM Mono'">${dist < 1000 ? Math.round(dist)+'m' : (dist/1000).toFixed(1)+'km'}</span></div>
+  `;
+
+  // Draw arrow on map
+  if (routeLayer) map.removeLayer(routeLayer);
+  routeLayer = L.polyline([[lat,lng],[nextPt.lat,nextPt.lng]], {
+    color: '#64ffb4', weight: 3, dashArray: '8,4'
+  }).addTo(map);
+}
+
+function haversine(lat1, lng1, lat2, lng2) {
+  const R = 6371000;
+  const dLat = (lat2-lat1)*Math.PI/180;
+  const dLng = (lng2-lng1)*Math.PI/180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function calcBearing(lat1, lng1, lat2, lng2) {
+  const dLng = (lng2-lng1)*Math.PI/180;
+  const y = Math.sin(dLng)*Math.cos(lat2*Math.PI/180);
+  const x = Math.cos(lat1*Math.PI/180)*Math.sin(lat2*Math.PI/180) - Math.sin(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.cos(dLng);
+  return (Math.atan2(y,x)*180/Math.PI + 360) % 360;
+}
+
+function bearingToName(b) {
+  const dirs = ['Norte','Noreste','Este','Sureste','Sur','Suroeste','Oeste','Noroeste'];
+  return dirs[Math.round(b/45) % 8];
+}
+
+// ── HISTORY ──
+async function loadHistory() {
+  const filterId = document.getElementById('history-filter') ? document.getElementById('history-filter').value : '';
+
+  let query = db.from('territory_history')
+    .select('*, territories(number, name)')
+    .order('event_at', { ascending: false })
+    .limit(100);
+
+  if (filterId) query = query.eq('territory_id', filterId);
+
+  const { data, error } = await query;
+  const el = document.getElementById('history-content');
+  if (!el) return;
+
+  if (error || !data || !data.length) {
+    el.innerHTML = '<div class="empty-state">Sin historial registrado aún.</div>';
+    return;
   }
 
-  function parseCoords(text) {
-    return text.trim().split(/\s+/).map(c => {
-      const parts = c.split(',');
-      return [parseFloat(parts[1]), parseFloat(parts[0])]; // lat, lng
-    }).filter(p => !isNaN(p[0]) && !isNaN(p[1]));
+  el.innerHTML = `
+    <table class="history-table">
+      <thead><tr>
+        <th>Territorio</th>
+        <th>Evento</th>
+        <th>Fecha</th>
+      </tr></thead>
+      <tbody>
+        ${data.map(h => `<tr>
+          <td>${h.territories ? `#${h.territories.number} ${h.territories.name}` : '—'}</td>
+          <td>${h.event}</td>
+          <td style="font-family:'DM Mono';font-size:11px;color:var(--text2)">${new Date(h.event_at).toLocaleDateString('es-MX', {day:'2-digit',month:'short',year:'numeric'})}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+  `;
+
+  // Also load full sessions
+  let sq = db.from('preaching_sessions')
+    .select('*, territories(number, name)')
+    .order('started_at', { ascending: false })
+    .limit(50);
+  if (filterId) sq = sq.eq('territory_id', filterId);
+  const { data: sessions } = await sq;
+
+  if (sessions && sessions.length) {
+    el.innerHTML += `
+      <div class="divider-line"></div>
+      <div style="font-family:'DM Mono';font-size:11px;color:var(--text2);margin-bottom:10px">SESIONES DE PREDICACIÓN</div>
+      <table class="history-table">
+        <thead><tr><th>Territorio</th><th>Inicio</th><th>Fin</th><th>Duración</th></tr></thead>
+        <tbody>
+          ${sessions.map(s => {
+            const start = new Date(s.started_at);
+            const end = s.ended_at ? new Date(s.ended_at) : null;
+            const dur = end ? formatDuration(end - start) : '<span style="color:var(--accent2)">En curso</span>';
+            return `<tr>
+              <td>${s.territories ? `#${s.territories.number} ${s.territories.name}` : '—'}</td>
+              <td style="font-family:'DM Mono';font-size:11px">${start.toLocaleDateString('es-MX')}<br>${start.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'})}</td>
+              <td style="font-family:'DM Mono';font-size:11px">${end ? end.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}) : '—'}</td>
+              <td style="font-family:'DM Mono';font-size:11px">${dur}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    `;
   }
-
-  function processMark(pm) {
-    const styleUrl = pm.querySelector('styleUrl')?.textContent;
-    const style = resolveStyle(styleUrl);
-    const name = pm.querySelector('name')?.textContent || '';
-    const desc = pm.querySelector('description')?.textContent || '';
-
-    // Point
-    pm.querySelectorAll('Point').forEach(pt => {
-      const coords = parseCoords(pt.querySelector('coordinates')?.textContent || '');
-      if (coords.length === 0) return;
-      const color = style.iconColor || style.color || '#7F77DD';
-      const icon = L.divIcon({
-        className: '',
-        html: `<div style="background:${color};width:12px;height:12px;border-radius:50%;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.3)"></div>`,
-        iconAnchor: [6, 6]
-      });
-      const m = L.marker(coords[0], { icon });
-      if (name || desc) m.bindPopup(`<b>${name}</b>${desc ? '<br>' + desc.substring(0,200) : ''}`);
-      group.addLayer(m); count++;
-    });
-
-    // LineString
-    pm.querySelectorAll('LineString').forEach(ls => {
-      const coords = parseCoords(ls.querySelector('coordinates')?.textContent || '');
-      if (coords.length < 2) return;
-      const l = L.polyline(coords, {
-        color: style.color || '#7F77DD',
-        weight: style.weight || 2,
-        opacity: 0.85
-      });
-      if (name) l.bindPopup(`<b>${name}</b>${desc ? '<br>' + desc.substring(0,200) : ''}`);
-      group.addLayer(l); count++;
-    });
-
-    // Polygon
-    pm.querySelectorAll('Polygon').forEach(pg => {
-      const outer = pg.querySelector('outerBoundaryIs coordinates') ||
-                    pg.querySelector('outerBoundaryIs > LinearRing > coordinates');
-      if (!outer) return;
-      const coords = parseCoords(outer.textContent);
-      if (coords.length < 3) return;
-      const holes = [];
-      pg.querySelectorAll('innerBoundaryIs').forEach(ib => {
-        const ic = ib.querySelector('coordinates');
-        if (ic) holes.push(parseCoords(ic.textContent));
-      });
-      const poly = L.polygon(holes.length ? [coords, ...holes] : coords, {
-        color: style.color || '#7F77DD',
-        weight: style.weight || 2,
-        fillColor: style.fillColor || '#7F77DD',
-        fillOpacity: style.fillOpacity !== undefined ? style.fillOpacity : 0.2,
-      });
-      if (name) poly.bindPopup(`<b>${name}</b>${desc ? '<br>' + desc.substring(0,200) : ''}`);
-      group.addLayer(poly); count++;
-    });
-
-    // MultiGeometry — recurse
-    pm.querySelectorAll('MultiGeometry').forEach(mg => {
-      // wrap children as pseudo-Placemark
-      const fake = kmlDoc.createElement('Placemark');
-      [...mg.children].forEach(child => fake.appendChild(child.cloneNode(true)));
-      if (styleUrl) {
-        const su = kmlDoc.createElement('styleUrl');
-        su.textContent = styleUrl;
-        fake.appendChild(su);
-      }
-      processMark(fake);
-    });
-  }
-
-  kmlDoc.querySelectorAll('Placemark').forEach(pm => processMark(pm));
-
-  return count > 0 ? group : null;
 }
 
-function kmlColorToHex(kmlColor) {
-  if (!kmlColor) return '#7F77DD';
-  const c = kmlColor.trim().replace('#', '');
-  if (c.length === 8) {
-    // KML: aabbggrr → #rrggbb
-    return '#' + c.substring(6, 8) + c.substring(4, 6) + c.substring(2, 4);
-  }
-  if (c.length === 6) return '#' + c;
-  return '#7F77DD';
+function formatDuration(ms) {
+  const s = Math.floor(ms / 1000);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  return h ? `${h}h ${m}m` : `${m}m`;
 }
 
-function renderKMLList() {
-  const card = document.getElementById('kml-layers-card');
-  const list = document.getElementById('kml-layers-list');
-  if (kmlLayers.length === 0) { card.style.display = 'none'; return; }
-  card.style.display = 'block';
-  list.innerHTML = kmlLayers.map((k, i) => `
-    <div style="display:flex;align-items:center;gap:8px;font-size:12px;">
-      <div style="width:12px;height:12px;background:#7F77DD;border-radius:3px;flex-shrink:0;"></div>
-      <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${k.name}">${k.name}</span>
-      <button class="btn btn-sm btn-danger" style="padding:3px 7px;" onclick="removeKMLLayer(${i})">✕</button>
-    </div>`).join('');
+// ── UI HELPERS ──
+function showPanel(name) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(`panel-${name}`).classList.add('active');
+  document.querySelector(`[onclick="showPanel('${name}')"]`).classList.add('active');
+  if (name === 'historial') loadHistory();
 }
 
-function removeKMLLayer(i) {
-  if (kmlLayers[i]) { try { map.removeLayer(kmlLayers[i].layer); } catch(e){} }
-  kmlLayers.splice(i, 1);
-  renderKMLList();
-  showToast('Capa KML eliminada');
+function openModal(id) {
+  document.getElementById(id).classList.add('open');
 }
 
-function clearKMLLayers() {
-  kmlLayers.forEach(k => { try { map.removeLayer(k.layer); } catch(e){} });
-  kmlLayers = [];
-  renderKMLList();
-  showToast('Capas KML eliminadas');
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
 }
 
-document.addEventListener('DOMContentLoaded', init);
-})();
+function showInfo(msg) {
+  const el = document.getElementById('map-info');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('show'), 4000);
+}
+
+function toast(msg, type = '') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = `toast ${type} show`;
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+// Close modals on background click
+document.querySelectorAll('.modal-bg').forEach(bg => {
+  bg.addEventListener('click', e => { if (e.target === bg) bg.classList.remove('open'); });
+});
+
+// ── START ──
+window.addEventListener('load', init);
 </script>
 </body>
 </html>
