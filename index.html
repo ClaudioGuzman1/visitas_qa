@@ -3,1288 +3,1188 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Territorios — Prados del Sol</title>
-
-<!-- Leaflet -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-
-<!-- Supabase -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-<!-- Turf.js for geo operations -->
+<title>Territorios — Capitán de Predicación</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
-
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300&family=DM+Mono:wght@400;500&display=swap');
-
   :root {
-    --bg: #0f1117;
-    --surface: #171c27;
-    --surface2: #1e2535;
-    --border: #2a3348;
-    --accent: #4a9eff;
-    --accent2: #64ffb4;
-    --warn: #ffb347;
-    --danger: #ff6b6b;
-    --text: #e8eaf0;
-    --text2: #8b93a8;
-    --text3: #5a6375;
-    --gold: #f0c060;
-    --map-h: calc(100vh - 120px);
+    --ink: #1a1209;
+    --paper: #f5f0e8;
+    --warm: #e8dfc8;
+    --gold: #c49a2a;
+    --gold-lt: #e8c96a;
+    --teal: #2a7c6f;
+    --teal-lt: #3dafa0;
+    --red: #b83232;
+    --red-lt: #e05555;
+    --blue: #1e4d8c;
+    --shadow: rgba(26,18,9,0.12);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { height:100%; font-family:'Crimson Pro', Georgia, serif; background:var(--paper); color:var(--ink); }
+
+  /* LAYOUT */
+  #app { display:flex; height:100vh; overflow:hidden; }
+  #sidebar {
+    width:340px; min-width:300px; max-width:340px;
+    background:var(--ink); color:var(--paper);
+    display:flex; flex-direction:column;
+    overflow:hidden; z-index:10;
+    box-shadow:4px 0 20px var(--shadow);
+    transition: transform 0.3s ease;
+  }
+  #map-container { flex:1; position:relative; }
+  #map { width:100%; height:100%; }
+
+  /* SIDEBAR HEADER */
+  #sidebar-header {
+    padding:22px 20px 16px;
+    border-bottom:1px solid rgba(245,240,232,0.12);
+    background: linear-gradient(135deg, #1a1209 0%, #2d2215 100%);
+  }
+  #sidebar-header h1 {
+    font-family:'Crimson Pro', serif;
+    font-weight:600; font-size:1.4rem; letter-spacing:0.02em;
+    color:var(--gold-lt); line-height:1.2;
+  }
+  #sidebar-header .subtitle {
+    font-family:'Space Mono', monospace;
+    font-size:0.62rem; color:rgba(245,240,232,0.5);
+    text-transform:uppercase; letter-spacing:0.12em; margin-top:4px;
   }
 
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+  /* TABS */
+  #tabs {
+    display:flex; border-bottom:1px solid rgba(245,240,232,0.1);
+    background:rgba(0,0,0,0.2);
+  }
+  .tab-btn {
+    flex:1; padding:10px 6px; background:none; border:none; cursor:pointer;
+    font-family:'Space Mono', monospace; font-size:0.58rem;
+    text-transform:uppercase; letter-spacing:0.08em;
+    color:rgba(245,240,232,0.45); transition:all 0.2s;
+    border-bottom:2px solid transparent;
+  }
+  .tab-btn.active { color:var(--gold-lt); border-bottom-color:var(--gold); }
+  .tab-btn:hover { color:var(--paper); }
 
-  body {
-    font-family: 'Crimson Pro', Georgia, serif;
-    background: var(--bg);
-    color: var(--text);
-    min-height: 100vh;
-    overflow: hidden;
-  }
+  /* PANEL */
+  .panel { display:none; flex:1; overflow-y:auto; padding:16px; flex-direction:column; gap:12px; }
+  .panel.active { display:flex; }
+  .panel::-webkit-scrollbar { width:4px; }
+  .panel::-webkit-scrollbar-track { background:transparent; }
+  .panel::-webkit-scrollbar-thumb { background:rgba(245,240,232,0.2); border-radius:2px; }
 
-  /* ── TOP BAR ── */
-  .topbar {
-    height: 56px;
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    padding: 0 20px;
-    gap: 24px;
-    position: relative;
-    z-index: 1000;
+  /* CARDS */
+  .card {
+    background:rgba(245,240,232,0.06); border:1px solid rgba(245,240,232,0.1);
+    border-radius:8px; padding:14px; transition:all 0.2s;
   }
-  .topbar-logo {
-    font-size: 18px;
-    font-weight: 600;
-    color: var(--gold);
-    letter-spacing: 0.5px;
-    white-space: nowrap;
+  .card:hover { background:rgba(245,240,232,0.1); border-color:rgba(245,240,232,0.2); }
+  .card-title {
+    font-family:'Space Mono', monospace; font-size:0.7rem;
+    text-transform:uppercase; letter-spacing:0.1em; color:var(--gold-lt);
+    margin-bottom:10px; display:flex; align-items:center; gap:8px;
   }
-  .topbar-logo span { color: var(--text2); font-weight: 300; font-style: italic; font-size: 14px; margin-left: 6px; }
-  .topbar-nav { display: flex; gap: 4px; margin-left: auto; }
-  .nav-btn {
-    background: none;
-    border: 1px solid transparent;
-    color: var(--text2);
-    padding: 6px 14px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-family: 'DM Mono', monospace;
-    font-size: 12px;
-    letter-spacing: 0.5px;
-    transition: all 0.15s;
-  }
-  .nav-btn:hover { border-color: var(--border); color: var(--text); }
-  .nav-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .card-title .dot { width:6px; height:6px; border-radius:50%; background:var(--gold); }
 
-  /* ── LAYOUT ── */
-  .app-body {
-    display: flex;
-    height: calc(100vh - 56px);
-    overflow: hidden;
+  /* TERRITORY LIST */
+  .territory-item {
+    display:flex; align-items:center; gap:10px; padding:10px 12px;
+    background:rgba(245,240,232,0.05); border:1px solid rgba(245,240,232,0.08);
+    border-radius:6px; cursor:pointer; margin-bottom:6px; transition:all 0.2s;
   }
+  .territory-item:hover { background:rgba(245,240,232,0.12); border-color:rgba(245,240,232,0.2); }
+  .territory-item.selected { background:rgba(196,154,42,0.15); border-color:var(--gold); }
+  .territory-item.active-preaching { border-color:var(--teal-lt); background:rgba(61,175,160,0.1); }
+  .territory-item.completed { border-color:rgba(245,240,232,0.05); opacity:0.6; }
+  .territory-color { width:10px; height:10px; border-radius:2px; flex-shrink:0; }
+  .territory-name { font-size:0.92rem; font-weight:600; flex:1; }
+  .territory-status {
+    font-family:'Space Mono', monospace; font-size:0.6rem;
+    padding:2px 8px; border-radius:10px; text-transform:uppercase; letter-spacing:0.06em;
+  }
+  .status-pending { background:rgba(245,240,232,0.1); color:rgba(245,240,232,0.5); }
+  .status-active { background:rgba(61,175,160,0.25); color:var(--teal-lt); }
+  .status-done { background:rgba(30,77,140,0.3); color:#6fa3e0; }
 
-  /* ── SIDEBAR ── */
-  .sidebar {
-    width: 320px;
-    min-width: 320px;
-    background: var(--surface);
-    border-right: 1px solid var(--border);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
+  /* INPUTS */
+  label { font-family:'Space Mono', monospace; font-size:0.62rem; text-transform:uppercase; letter-spacing:0.1em; color:rgba(245,240,232,0.5); display:block; margin-bottom:4px; }
+  input, textarea, select {
+    width:100%; background:rgba(245,240,232,0.06); border:1px solid rgba(245,240,232,0.15);
+    border-radius:6px; padding:9px 12px; color:var(--paper); font-family:'Crimson Pro', serif;
+    font-size:0.95rem; transition:border-color 0.2s; outline:none;
   }
-  .sidebar-header {
-    padding: 16px;
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-  .sidebar-header h2 { font-size: 16px; font-weight: 600; flex: 1; }
-  .sidebar-content { flex: 1; overflow-y: auto; padding: 12px; }
+  input:focus, textarea:focus, select:focus { border-color:var(--gold); }
+  select option { background:#1a1209; }
 
-  .panel { display: none; flex-direction: column; height: 100%; }
-  .panel.active { display: flex; }
-
-  /* ── CARDS ── */
-  .territory-card {
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 12px;
-    margin-bottom: 8px;
-    cursor: pointer;
-    transition: all 0.15s;
-    position: relative;
-  }
-  .territory-card:hover { border-color: var(--accent); }
-  .territory-card.selected { border-color: var(--accent); background: rgba(74,158,255,0.08); }
-  .territory-card .tc-name { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
-  .territory-card .tc-status { font-size: 12px; font-family: 'DM Mono', monospace; }
-  .status-dot {
-    display: inline-block;
-    width: 8px; height: 8px;
-    border-radius: 50%;
-    margin-right: 6px;
-  }
-  .status-pending { background: var(--warn); }
-  .status-active { background: var(--accent2); animation: pulse 1.5s infinite; }
-  .status-completed { background: var(--text3); }
-
-  @keyframes pulse {
-    0%,100% { opacity:1; } 50% { opacity:0.4; }
-  }
-
-  .tc-progress {
-    margin-top: 8px;
-    height: 4px;
-    background: var(--border);
-    border-radius: 2px;
-    overflow: hidden;
-  }
-  .tc-progress-fill { height: 100%; background: var(--accent2); border-radius: 2px; transition: width 0.4s; }
-
-  /* ── MAP ── */
-  .map-wrap { flex: 1; position: relative; }
-  #map { width: 100%; height: 100%; background: #0d1117; }
-
-  /* ── MAP OVERLAY CONTROLS ── */
-  .map-toolbar {
-    position: absolute;
-    top: 12px;
-    right: 12px;
-    z-index: 500;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-  .map-btn {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    color: var(--text);
-    padding: 8px 14px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-family: 'DM Mono', monospace;
-    font-size: 12px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    transition: all 0.15s;
-    white-space: nowrap;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
-  }
-  .map-btn:hover { border-color: var(--accent); color: var(--accent); }
-  .map-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
-  .map-btn.danger { border-color: var(--danger); color: var(--danger); }
-  .map-btn.success { background: var(--accent2); border-color: var(--accent2); color: #000; }
-
-  .map-info {
-    position: absolute;
-    bottom: 24px;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 500;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    padding: 8px 18px;
-    border-radius: 20px;
-    font-size: 13px;
-    font-family: 'DM Mono', monospace;
-    color: var(--text2);
-    pointer-events: none;
-    opacity: 0;
-    transition: opacity 0.3s;
-  }
-  .map-info.show { opacity: 1; }
-
-  /* ── MODAL ── */
-  .modal-bg {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.7);
-    z-index: 2000;
-    align-items: center;
-    justify-content: center;
-  }
-  .modal-bg.open { display: flex; }
-  .modal {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 24px;
-    min-width: 360px;
-    max-width: 520px;
-    width: 90%;
-    max-height: 85vh;
-    overflow-y: auto;
-  }
-  .modal h3 { font-size: 18px; font-weight: 600; margin-bottom: 16px; color: var(--gold); }
-  .form-group { margin-bottom: 14px; }
-  .form-group label { display: block; font-size: 12px; font-family: 'DM Mono', monospace; color: var(--text2); margin-bottom: 6px; letter-spacing: 0.5px; }
-  .form-group input, .form-group select, .form-group textarea {
-    width: 100%;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 9px 12px;
-    color: var(--text);
-    font-family: 'Crimson Pro', serif;
-    font-size: 15px;
-    outline: none;
-    transition: border-color 0.15s;
-  }
-  .form-group input:focus, .form-group select:focus { border-color: var(--accent); }
-  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+  /* BUTTONS */
   .btn {
-    padding: 9px 20px;
-    border-radius: 6px;
-    border: none;
-    cursor: pointer;
-    font-family: 'DM Mono', monospace;
-    font-size: 13px;
-    transition: all 0.15s;
+    width:100%; padding:11px 16px; border:none; border-radius:6px; cursor:pointer;
+    font-family:'Space Mono', monospace; font-size:0.7rem;
+    text-transform:uppercase; letter-spacing:0.1em; transition:all 0.2s;
   }
-  .btn-primary { background: var(--accent); color: #fff; }
-  .btn-primary:hover { opacity: 0.85; }
-  .btn-success { background: var(--accent2); color: #000; }
-  .btn-ghost { background: transparent; color: var(--text2); border: 1px solid var(--border); }
-  .btn-ghost:hover { border-color: var(--text2); color: var(--text); }
-  .btn-danger { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
+  .btn-primary { background:var(--gold); color:var(--ink); }
+  .btn-primary:hover { background:var(--gold-lt); }
+  .btn-teal { background:var(--teal); color:var(--paper); }
+  .btn-teal:hover { background:var(--teal-lt); }
+  .btn-red { background:var(--red); color:var(--paper); }
+  .btn-red:hover { background:var(--red-lt); }
+  .btn-ghost { background:transparent; border:1px solid rgba(245,240,232,0.2); color:var(--paper); }
+  .btn-ghost:hover { background:rgba(245,240,232,0.08); }
+  .btn-sm { padding:7px 12px; font-size:0.6rem; width:auto; }
 
-  /* ── HISTORY TABLE ── */
-  .history-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  .history-table th {
-    font-family: 'DM Mono', monospace;
-    font-size: 11px;
-    color: var(--text2);
-    text-align: left;
-    padding: 8px 10px;
-    border-bottom: 1px solid var(--border);
+  /* PROGRESS BAR */
+  .progress-bar { height:6px; background:rgba(245,240,232,0.1); border-radius:3px; overflow:hidden; }
+  .progress-fill { height:100%; border-radius:3px; background:linear-gradient(90deg, var(--teal), var(--teal-lt)); transition:width 0.4s ease; }
+
+  /* STAT GRID */
+  .stat-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .stat-box { background:rgba(245,240,232,0.06); border:1px solid rgba(245,240,232,0.08); border-radius:6px; padding:10px 12px; text-align:center; }
+  .stat-num { font-family:'Space Mono', monospace; font-size:1.4rem; color:var(--gold-lt); font-weight:700; }
+  .stat-lbl { font-family:'Space Mono', monospace; font-size:0.55rem; text-transform:uppercase; letter-spacing:0.08em; color:rgba(245,240,232,0.4); margin-top:2px; }
+
+  /* HISTORY */
+  .history-row {
+    padding:10px 12px; border-left:2px solid rgba(245,240,232,0.15);
+    margin-bottom:6px;
   }
-  .history-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); }
-  .history-table tr:hover td { background: rgba(255,255,255,0.02); }
+  .history-row.done { border-left-color:var(--teal); }
+  .history-row .h-name { font-size:0.9rem; font-weight:600; }
+  .history-row .h-date { font-family:'Space Mono', monospace; font-size:0.6rem; color:rgba(245,240,232,0.4); margin-top:2px; }
 
-  /* ── SESSION TRACKER ── */
-  .session-box {
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 14px;
-    margin-bottom: 12px;
+  /* MAP TOOLS OVERLAY */
+  #map-toolbar {
+    position:absolute; top:16px; left:16px; z-index:500;
+    display:flex; flex-direction:column; gap:8px;
   }
-  .session-box h4 { font-size: 14px; color: var(--gold); margin-bottom: 10px; }
-  .timer-display {
-    font-family: 'DM Mono', monospace;
-    font-size: 28px;
-    text-align: center;
-    color: var(--accent2);
-    margin: 10px 0;
+  .map-tool-btn {
+    width:44px; height:44px; border:none; border-radius:8px; cursor:pointer;
+    font-size:1.1rem; display:flex; align-items:center; justify-content:center;
+    box-shadow:0 2px 12px var(--shadow); transition:all 0.2s;
+  }
+  .map-tool-btn.active { background:var(--gold); }
+  .map-tool-btn:not(.active) { background:var(--ink); color:var(--paper); }
+  .map-tool-btn:hover { transform:translateY(-1px); box-shadow:0 4px 16px var(--shadow); }
+
+  #map-info {
+    position:absolute; bottom:24px; left:50%; transform:translateX(-50%);
+    background:var(--ink); color:var(--paper); padding:10px 20px;
+    border-radius:20px; font-family:'Space Mono', monospace; font-size:0.7rem;
+    letter-spacing:0.06em; z-index:500; pointer-events:none;
+    box-shadow:0 4px 20px var(--shadow);
+    opacity:0; transition:opacity 0.3s;
+    white-space:nowrap;
+  }
+  #map-info.visible { opacity:1; }
+
+  #sidebar-toggle {
+    position:absolute; top:16px; right:16px; z-index:500;
+    width:44px; height:44px; border:none; border-radius:8px;
+    background:var(--ink); color:var(--paper); cursor:pointer;
+    font-size:1.1rem; display:flex; align-items:center; justify-content:center;
+    box-shadow:0 2px 12px var(--shadow);
   }
 
-  /* ── SPLIT MODE HINT ── */
-  .split-hint {
-    position: absolute;
-    top: 12px;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 500;
-    background: rgba(74,158,255,0.15);
-    border: 1px solid var(--accent);
-    color: var(--accent);
-    padding: 8px 18px;
-    border-radius: 20px;
-    font-size: 13px;
-    font-family: 'DM Mono', monospace;
-    pointer-events: none;
-    display: none;
+  /* MODAL */
+  #modal-overlay {
+    display:none; position:fixed; inset:0; background:rgba(26,18,9,0.7);
+    z-index:1000; align-items:center; justify-content:center; padding:20px;
   }
-  .split-hint.show { display: block; }
-
-  /* ── STATS ROW ── */
-  .stats-row { display: flex; gap: 8px; margin-bottom: 12px; }
-  .stat-chip {
-    flex: 1;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 10px;
-    text-align: center;
+  #modal-overlay.open { display:flex; }
+  #modal {
+    background:var(--ink); border:1px solid rgba(245,240,232,0.15);
+    border-radius:12px; max-width:480px; width:100%; padding:28px;
+    max-height:85vh; overflow-y:auto;
   }
-  .stat-chip .val { font-size: 22px; font-weight: 600; color: var(--gold); }
-  .stat-chip .lbl { font-size: 11px; font-family: 'DM Mono', monospace; color: var(--text2); }
+  #modal h2 { font-family:'Crimson Pro', serif; font-size:1.4rem; color:var(--gold-lt); margin-bottom:20px; }
+  .modal-field { margin-bottom:16px; }
+  .modal-actions { display:flex; gap:10px; margin-top:20px; }
+  .modal-actions .btn { flex:1; }
 
-  /* scrollbar */
-  ::-webkit-scrollbar { width: 6px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  /* ROUTE LINE */
+  .route-arrow { fill:none; stroke:var(--teal-lt); stroke-width:3; }
 
-  /* Leaflet dark overrides */
-  .leaflet-container { font-family: 'DM Mono', monospace; }
-  .leaflet-popup-content-wrapper {
-    background: var(--surface) !important;
-    color: var(--text) !important;
-    border: 1px solid var(--border) !important;
-    border-radius: 8px !important;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.5) !important;
+  /* NOTIFICATION */
+  #notif {
+    position:fixed; top:20px; right:20px; z-index:2000;
+    background:var(--teal); color:var(--paper); padding:12px 20px;
+    border-radius:8px; font-family:'Space Mono', monospace; font-size:0.7rem;
+    transform:translateX(120%); transition:transform 0.3s ease;
+    max-width:280px;
   }
-  .leaflet-popup-tip { background: var(--surface) !important; }
-  .leaflet-popup-content { font-family: 'Crimson Pro', serif !important; font-size: 14px !important; }
-  .leaflet-bar a { background: var(--surface) !important; color: var(--text) !important; border-color: var(--border) !important; }
-  .leaflet-control-attribution { background: rgba(15,17,23,0.8) !important; color: var(--text3) !important; }
+  #notif.show { transform:translateX(0); }
+  #notif.error { background:var(--red); }
 
-  .divider-line { height: 1px; background: var(--border); margin: 12px 0; }
-  .tag { display: inline-block; padding: 2px 8px; border-radius: 10px; font-family: 'DM Mono', monospace; font-size: 11px; }
-  .tag-blue { background: rgba(74,158,255,0.15); color: var(--accent); }
-  .tag-green { background: rgba(100,255,180,0.15); color: var(--accent2); }
-  .tag-orange { background: rgba(255,179,71,0.15); color: var(--warn); }
-
-  .empty-state { text-align: center; color: var(--text3); font-style: italic; padding: 30px 0; font-size: 14px; }
-
-  /* toast */
-  .toast {
-    position: fixed;
-    bottom: 30px;
-    left: 50%;
-    transform: translateX(-50%) translateY(80px);
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    color: var(--text);
-    padding: 10px 22px;
-    border-radius: 20px;
-    font-family: 'DM Mono', monospace;
-    font-size: 13px;
-    z-index: 9999;
-    transition: transform 0.3s;
+  /* DIVIDER */
+  .divider { height:1px; background:rgba(245,240,232,0.1); margin:4px 0; }
+  .section-label {
+    font-family:'Space Mono', monospace; font-size:0.6rem; text-transform:uppercase;
+    letter-spacing:0.12em; color:rgba(245,240,232,0.35); padding:2px 0;
   }
-  .toast.show { transform: translateX(-50%) translateY(0); }
-  .toast.success { border-color: var(--accent2); color: var(--accent2); }
-  .toast.error { border-color: var(--danger); color: var(--danger); }
+
+  /* ROUTE INSTRUCTION */
+  .route-step {
+    display:flex; align-items:flex-start; gap:10px; padding:8px 10px;
+    background:rgba(245,240,232,0.05); border-radius:6px; margin-bottom:5px;
+  }
+  .route-step-num {
+    font-family:'Space Mono', monospace; font-size:0.65rem; color:var(--gold);
+    min-width:20px; font-weight:700; margin-top:2px;
+  }
+  .route-step-text { font-size:0.85rem; line-height:1.4; }
+
+  @media(max-width:768px) {
+    #app { flex-direction:column; }
+    #sidebar { width:100%; max-width:100%; height:45vh; min-width:unset; }
+    #map-container { flex:1; }
+  }
 </style>
 </head>
 <body>
-
-<!-- TOP BAR -->
-<div class="topbar">
-  <div class="topbar-logo">✦ Territorios <span>Prados del Sol</span></div>
-  <div class="topbar-nav">
-    <button class="nav-btn active" onclick="showPanel('territorios')">Territorios</button>
-    <button class="nav-btn" onclick="showPanel('predicacion')">Predicación</button>
-    <button class="nav-btn" onclick="showPanel('historial')">Historial</button>
-  </div>
-</div>
-
-<div class="app-body">
+<div id="app">
   <!-- SIDEBAR -->
-  <div class="sidebar">
+  <div id="sidebar">
+    <div id="sidebar-header">
+      <h1>✦ Territorios Prados</h1>
+      <div class="subtitle">Capitán de Predicación · Mazatlán</div>
+    </div>
+    <div id="tabs">
+      <button class="tab-btn active" onclick="switchTab('territorios')">Territorios</button>
+      <button class="tab-btn" onclick="switchTab('predicacion')">Predicación</button>
+      <button class="tab-btn" onclick="switchTab('historial')">Historial</button>
+      <button class="tab-btn" onclick="switchTab('dividir')">Dividir</button>
+    </div>
 
-    <!-- PANEL: TERRITORIOS -->
+    <!-- TAB: TERRITORIOS -->
     <div class="panel active" id="panel-territorios">
-      <div class="sidebar-header">
-        <h2>🗺 Territorios</h2>
-        <button class="btn btn-primary" onclick="openNewTerritoryModal()" style="font-size:12px;padding:6px 12px">+ Nuevo</button>
-      </div>
-      <div class="sidebar-content">
-        <div class="stats-row" id="stats-row">
-          <div class="stat-chip"><div class="val" id="stat-total">0</div><div class="lbl">Total</div></div>
-          <div class="stat-chip"><div class="val" id="stat-active">0</div><div class="lbl">Activos</div></div>
-          <div class="stat-chip"><div class="val" id="stat-done">0</div><div class="lbl">Completados</div></div>
+      <div class="stat-grid">
+        <div class="stat-box">
+          <div class="stat-num" id="stat-total">—</div>
+          <div class="stat-lbl">Total</div>
         </div>
-        <div id="territory-list"><div class="empty-state">Cargando territorios…</div></div>
+        <div class="stat-box">
+          <div class="stat-num" id="stat-done">—</div>
+          <div class="stat-lbl">Completados</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-num" id="stat-active">—</div>
+          <div class="stat-lbl">Activos</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-num" id="stat-pct">—</div>
+          <div class="stat-lbl">Progreso</div>
+        </div>
       </div>
+      <div class="card">
+        <div class="card-title"><span class="dot"></span>Progreso general</div>
+        <div class="progress-bar"><div class="progress-fill" id="global-progress" style="width:0%"></div></div>
+      </div>
+      <div id="territory-list"></div>
     </div>
 
-    <!-- PANEL: PREDICACIÓN -->
+    <!-- TAB: PREDICACIÓN -->
     <div class="panel" id="panel-predicacion">
-      <div class="sidebar-header">
-        <h2>📖 Predicación</h2>
+      <div class="card">
+        <div class="card-title"><span class="dot"></span>Territorio activo</div>
+        <div id="active-territory-info" style="font-size:0.85rem; color:rgba(245,240,232,0.5);">
+          Selecciona un territorio para iniciar la predicación
+        </div>
       </div>
-      <div class="sidebar-content">
-        <div id="preaching-territory-select">
-          <div class="form-group">
-            <label>TERRITORIO ACTIVO</label>
-            <select id="preaching-territory-dd" onchange="onPreachingTerritoryChange()">
-              <option value="">— Seleccionar territorio —</option>
-            </select>
-          </div>
+      <div class="card" id="session-controls">
+        <div class="card-title"><span class="dot"></span>Sesión del día</div>
+        <div class="modal-field">
+          <label>Territorio</label>
+          <select id="sel-territory"></select>
         </div>
-        <div id="preaching-session-panel" style="display:none">
-          <div class="session-box">
-            <h4>⏱ Sesión de hoy</h4>
-            <div class="timer-display" id="session-timer">00:00:00</div>
-            <div style="display:flex;gap:8px;margin-top:10px">
-              <button class="btn btn-success" style="flex:1" id="btn-start-session" onclick="startSession()">▶ Iniciar</button>
-              <button class="btn btn-danger" style="flex:1" id="btn-end-session" onclick="endSession()" disabled>■ Finalizar</button>
-            </div>
-          </div>
-          <div class="session-box">
-            <h4>📍 Ubicación actual</h4>
-            <button class="btn btn-ghost" style="width:100%;margin-bottom:10px" onclick="getCurrentLocation()">🔍 Detectar mi ubicación</button>
-            <div id="location-result" style="font-size:13px;color:var(--text2);min-height:20px"></div>
-          </div>
-          <div class="session-box" id="next-route-box" style="display:none">
-            <h4>🧭 Siguiente tramo</h4>
-            <div id="next-route-info" style="font-size:14px;color:var(--text);line-height:1.5"></div>
-          </div>
-          <div class="session-box">
-            <h4>📊 Progreso del territorio</h4>
-            <div id="preaching-progress"></div>
-          </div>
+        <div class="modal-field">
+          <label>Predicadores</label>
+          <input type="text" id="inp-preachers" placeholder="Ej: Juan, María, Pedro">
         </div>
+        <div style="display:flex;gap:8px;margin-top:4px;">
+          <button class="btn btn-teal" onclick="startSession()">▶ Iniciar</button>
+          <button class="btn btn-red" onclick="endSession()">■ Finalizar</button>
+        </div>
+      </div>
+      <div class="card" id="route-card" style="display:none;">
+        <div class="card-title"><span class="dot"></span>Ruta sugerida</div>
+        <div id="route-steps"></div>
+      </div>
+      <div class="card">
+        <div class="card-title"><span class="dot"></span>Mi ubicación</div>
+        <button class="btn btn-ghost" onclick="locateMe()">📍 Mostrar mi posición</button>
+        <div id="location-info" style="font-size:0.8rem;color:rgba(245,240,232,0.4);margin-top:8px;"></div>
       </div>
     </div>
 
-    <!-- PANEL: HISTORIAL -->
+    <!-- TAB: HISTORIAL -->
     <div class="panel" id="panel-historial">
-      <div class="sidebar-header">
-        <h2>📋 Historial</h2>
-      </div>
-      <div class="sidebar-content">
-        <div class="form-group" style="margin-bottom:12px">
-          <label>FILTRAR POR TERRITORIO</label>
-          <select id="history-filter" onchange="loadHistory()">
-            <option value="">Todos</option>
-          </select>
-        </div>
-        <div id="history-content"><div class="empty-state">Cargando historial…</div></div>
+      <div class="card">
+        <div class="card-title"><span class="dot"></span>Registro histórico</div>
+        <div id="history-list" style="font-size:0.85rem;color:rgba(245,240,232,0.4);">Cargando...</div>
       </div>
     </div>
 
+    <!-- TAB: DIVIDIR -->
+    <div class="panel" id="panel-dividir">
+      <div class="card">
+        <div class="card-title"><span class="dot"></span>Dividir territorio</div>
+        <p style="font-size:0.85rem;color:rgba(245,240,232,0.6);line-height:1.5;margin-bottom:12px;">
+          1. Selecciona el territorio a dividir<br>
+          2. Activa el modo de división<br>
+          3. Haz clic en el mapa para trazar la línea de corte<br>
+          4. Guarda los nuevos territorios
+        </p>
+        <div class="modal-field">
+          <label>Territorio a dividir</label>
+          <select id="sel-divide-territory"></select>
+        </div>
+        <button class="btn btn-primary" onclick="activateDivideMode()" id="btn-divide-mode">✂ Activar modo división</button>
+        <div id="divide-status" style="font-size:0.8rem;color:rgba(245,240,232,0.4);margin-top:8px;display:none;">
+          Haz clic en 2+ puntos para trazar la línea de división. Luego presiona "Cortar".
+        </div>
+        <div style="display:flex;gap:8px;margin-top:10px;" id="divide-actions" style="display:none;">
+          <button class="btn btn-teal btn-sm" onclick="executeDivide()" id="btn-cut">✦ Cortar</button>
+          <button class="btn btn-ghost btn-sm" onclick="cancelDivide()">✕ Cancelar</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title"><span class="dot"></span>Importar KML</div>
+        <p style="font-size:0.82rem;color:rgba(245,240,232,0.5);margin-bottom:10px;">Carga un archivo KML para importar territorios adicionales.</p>
+        <input type="file" id="kml-file" accept=".kml" style="font-size:0.8rem;padding:6px;">
+        <button class="btn btn-ghost" style="margin-top:8px;" onclick="importKML()">↑ Importar</button>
+      </div>
+    </div>
   </div>
 
   <!-- MAP -->
-  <div class="map-wrap">
+  <div id="map-container">
+    <div id="map-toolbar">
+      <button class="map-tool-btn" id="btn-locate" title="Mi ubicación" onclick="locateMe()">📍</button>
+      <button class="map-tool-btn" id="btn-all-territories" title="Ver todos" onclick="showAllTerritories()">🗺</button>
+    </div>
+    <button id="sidebar-toggle" onclick="toggleSidebar()" title="Ocultar panel">☰</button>
     <div id="map"></div>
-    <div class="split-hint" id="split-hint">Haz clic en el mapa para agregar puntos de división · Doble clic para finalizar</div>
-    <div class="map-toolbar" id="map-toolbar">
-      <button class="map-btn" id="btn-split-mode" onclick="toggleSplitMode()">✂ Dividir territorio</button>
-      <button class="map-btn" id="btn-confirm-split" onclick="confirmSplit()" style="display:none" class="success">✓ Confirmar división</button>
-      <button class="map-btn" id="btn-cancel-split" onclick="cancelSplit()" style="display:none">✕ Cancelar</button>
-      <button class="map-btn" onclick="fitBounds()">⊡ Centrar mapa</button>
-      <button class="map-btn" onclick="toggleSatellite()">🛰 Satélite</button>
-    </div>
-    <div class="map-info" id="map-info"></div>
+    <div id="map-info"></div>
   </div>
 </div>
 
-<!-- MODAL: NUEVO TERRITORIO -->
-<div class="modal-bg" id="modal-new-territory">
-  <div class="modal">
-    <h3>✦ Nuevo Territorio</h3>
-    <p style="color:var(--text2);font-size:14px;margin-bottom:16px">Selecciona un área del mapa principal o define el territorio desde un polígono existente. El nombre y número identifican el territorio.</p>
-    <div class="form-group">
-      <label>NÚMERO DE TERRITORIO</label>
-      <input type="number" id="new-territory-num" placeholder="Ej. 1, 2, 3…" min="1">
-    </div>
-    <div class="form-group">
-      <label>NOMBRE</label>
-      <input type="text" id="new-territory-name" placeholder="Ej. Sector Norte">
-    </div>
-    <div class="form-group">
-      <label>DESCRIPCIÓN (opcional)</label>
-      <textarea id="new-territory-desc" rows="2" placeholder="Notas sobre el territorio…" style="resize:vertical"></textarea>
-    </div>
-    <p style="font-size:13px;color:var(--accent);margin-bottom:4px">💡 Activa "✂ Dividir territorio" en el mapa para marcar puntos y generar el polígono, o el territorio tomará el área KML completa.</p>
+<!-- MODAL -->
+<div id="modal-overlay">
+  <div id="modal">
+    <h2 id="modal-title">Acción</h2>
+    <div id="modal-body"></div>
     <div class="modal-actions">
-      <button class="btn btn-ghost" onclick="closeModal('modal-new-territory')">Cancelar</button>
-      <button class="btn btn-primary" onclick="saveNewTerritory()">Guardar territorio</button>
+      <button class="btn btn-primary" id="modal-confirm" onclick="modalConfirm()">Confirmar</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
     </div>
   </div>
 </div>
 
-<!-- MODAL: DETALLE TERRITORIO -->
-<div class="modal-bg" id="modal-territory-detail">
-  <div class="modal">
-    <h3 id="modal-detail-title">Territorio</h3>
-    <div id="modal-detail-content"></div>
-    <div class="modal-actions">
-      <button class="btn btn-danger" onclick="deleteTerritory()">Eliminar</button>
-      <button class="btn btn-ghost" onclick="closeModal('modal-territory-detail')">Cerrar</button>
-      <button class="btn btn-success" onclick="startPreachingFromDetail()">▶ Iniciar predicación</button>
-    </div>
-  </div>
-</div>
-
-<!-- TOAST -->
-<div class="toast" id="toast"></div>
+<!-- NOTIFICATION -->
+<div id="notif"></div>
 
 <script>
-// ── CONFIG ──
+// ─── SUPABASE ───────────────────────────────────────────────────────────────
 const SUPABASE_URL = 'https://pbcyeeqkdudlnqghgwmb.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBiY3llZXFrZHVkbG5xZ2hnd21iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAxMzgwNjksImV4cCI6MjA5NTcxNDA2OX0.HUWjTRPmRAcgcGG-YiCnqVRQlVQlTVX_Q_O6OaCTLjk';
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-// ── KML BOUNDARY ──
-const KML_COORDS = [[-106.474281696573,23.310770029970037],[-106.4735547248755,23.310106137807253],[-106.47211562881282,23.30878468895948],[-106.47089130638028,23.30759655993018],[-106.4702345629414,23.307114373756054],[-106.4690810964613,23.306228866000268],[-106.4671698223317,23.30479102427717],[-106.46477215193909,23.303080888299693],[-106.4637760297919,23.30219173543994],[-106.4619503498101,23.300334493562122],[-106.46017480850801,23.2983593075642],[-106.4583864627458,23.296413203909797],[-106.4558932759504,23.293585142169366],[-106.454675729693,23.29201301945953],[-106.4537190765734,23.29045886431883],[-106.4519979346496,23.287837398969284],[-106.4511148781497,23.28687491424535],[-106.4504603852583,23.286282714230868],[-106.4496981398471,23.285673003979962],[-106.4480673659066,23.28448541925374],[-106.4456479837874,23.28284908691693],[-106.4460838563978,23.28246181753648],[-106.44630382203839,23.28209221868344],[-106.44649004731009,23.281558527615438],[-106.44706701398847,23.279290144372485],[-106.4478277517746,23.275983196667145],[-106.44783406799502,23.275668363060255],[-106.4477778904493,23.27532434625123],[-106.4473112869633,23.274484010331715],[-106.4463608338451,23.27517897883686],[-106.44588131184078,23.275697921354425],[-106.4454196777517,23.276323194359794],[-106.4448922261685,23.27704464562547],[-106.44474587386831,23.27720778660694],[-106.44444687858751,23.276962955694653],[-106.4444359303935,23.276852634612],[-106.44454055257398,23.276680320147403],[-106.44453786592489,23.276416831767836],[-106.444477341374,23.276318318022536],[-106.4443606561379,23.276227651621767],[-106.44393085850288,23.27500308252367],[-106.4439884373736,23.274769603226797],[-106.44392815051009,23.274459840976885],[-106.4437294130039,23.2741318639596],[-106.44315532279768,23.274243820133865],[-106.4423791873172,23.27457663531413],[-106.441739455161,23.274809916434194],[-106.44126544067429,23.275527460778388],[-106.440888510878,23.276009421003728],[-106.4407595779562,23.276414232830977],[-106.44045203777729,23.27679778581802],[-106.4401443167604,23.27704501012135],[-106.4394470992507,23.277395602618764],[-106.43840600687061,23.27639460597108],[-106.43737527604301,23.275403390672498],[-106.4358800924608,23.273958517939075],[-106.4342776435397,23.27240658454933],[-106.43363550854032,23.27178378129521],[-106.430799859908,23.269010116667527],[-106.4297791732954,23.26799070071319],[-106.42944802103038,23.268265153389617],[-106.4290866435324,23.268583619899445],[-106.4278882983495,23.26960965563405],[-106.42727153358601,23.2701507258817],[-106.4265596132318,23.270773336600918],[-106.4256784424252,23.271533726894187],[-106.4248630104905,23.27224565205827],[-106.42623527445969,23.27320530274586],[-106.4262068196212,23.273637277732345],[-106.4260982663406,23.27442647179697],[-106.4257701489454,23.275818200431843],[-106.4233704164051,23.275321908330152],[-106.4218003491083,23.274997242164755],[-106.4195162457174,23.27434338593015],[-106.4192759345438,23.27536253359581],[-106.41881739541199,23.27746555636009],[-106.4187355464108,23.278030432209533],[-106.4187953176093,23.27837835914938],[-106.41896816559621,23.278840026208574],[-106.4193172499952,23.281238111681596],[-106.41970400457382,23.283095910224137],[-106.4199600378192,23.284326697193716],[-106.4181335290989,23.28459073071065],[-106.4184544048673,23.28595391498447],[-106.4177066492864,23.286054390922097],[-106.4177350145423,23.286160309405886],[-106.4171173433854,23.28620704392707],[-106.4166673961776,23.2862556517458],[-106.4164166275736,23.286546287517275],[-106.4162166563332,23.286513657764907],[-106.41613287911801,23.2866070511948],[-106.41467637350739,23.28687976444672],[-106.41450224608418,23.286877816924193],[-106.4143876551243,23.286982228565446],[-106.4140323993771,23.28716071989712],[-106.4137155963868,23.287099276330398],[-106.41389977977929,23.287757666502547],[-106.4139248959696,23.287847110858177],[-106.41409096133819,23.288334769520777],[-106.4141357123532,23.28846625175426],[-106.414166390899,23.289139090744207],[-106.41419052783881,23.289681123595404],[-106.4142078906023,23.290159774805893],[-106.41425862537702,23.29036879789086],[-106.4144271248538,23.29094126484314],[-106.41455455443962,23.291372982110065],[-106.4147765810006,23.291953815826457],[-106.4150559400124,23.292685064174055],[-106.4157038720904,23.294376031932423],[-106.41585695091469,23.29477922107687],[-106.4162846339251,23.295550539445014],[-106.4166935242019,23.296068974132773],[-106.4168484598206,23.296423136636704],[-106.41694167080719,23.29683639189172],[-106.4166335453282,23.29982588806894],[-106.4179578234896,23.30104453514985],[-106.4193678493974,23.302398387780755],[-106.42011343610939,23.30313215647281],[-106.4215043780678,23.30449933098577],[-106.4203305514864,23.305224197431002],[-106.4207768453559,23.306004337395844],[-106.4233901306627,23.30681801535575],[-106.4253380358534,23.308547116559197],[-106.43274785168978,23.31609375960778],[-106.44386486172709,23.327604425090765],[-106.4538477903615,23.33882824981133],[-106.4543753842316,23.33754669732961],[-106.4565847685228,23.335251871707907],[-106.4578951165104,23.331320113726992],[-106.4580408526735,23.330279176930507],[-106.45756373322381,23.328220736316556],[-106.45763179093198,23.327327152259816],[-106.4582411411904,23.326322083703335],[-106.46271588699229,23.32188411230062],[-106.47057930650152,23.314120957876504],[-106.47197831593948,23.31275150092439],[-106.474281696573,23.310770029970037]];
-
-// ── STATE ──
-let map, satelliteLayer, osmLayer, currentTile = 'osm';
-let territories = [];
-let selectedTerritoryId = null;
-let detailTerritoryId = null;
-let splitMode = false;
-let splitPoints = [];
-let splitPolyline = null;
-let splitMarkers = [];
-let pendingSplitPolygon = null;
-let kmlLayer = null;
-let territoryLayers = {};
+// ─── STATE ──────────────────────────────────────────────────────────────────
+let map, territories = [], sessions = [], history = [];
+let selectedTerritory = null;
 let activeSession = null;
-let sessionTimerInterval = null;
-let sessionStart = null;
-let routeLayer = null;
+let divideMode = false;
+let dividePoints = [];
+let dividePolyline = null;
 let userMarker = null;
+let routeLayer = null;
+let modalAction = null;
+let sidebarVisible = true;
 
-// ── INIT ──
+// Colors palette for territories
+const COLORS = ['#2a7c6f','#c49a2a','#b83232','#1e4d8c','#7c5a2a','#2a4d7c','#7c2a6f','#4d7c2a','#7c7c2a','#2a7c7c'];
+
+// ─── INIT ────────────────────────────────────────────────────────────────────
 async function init() {
-  initMap();
-  await ensureSchema();
+  // Setup map
+  map = L.map('map', { zoomControl:false });
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    attribution:'©OpenStreetMap ©Carto', maxZoom:19
+  }).addTo(map);
+  L.control.zoom({ position:'bottomright' }).addTo(map);
+
+  // Setup Supabase tables (create if not exist via RPC or just try using them)
+  await ensureTables();
   await loadTerritories();
+  await loadSessions();
   await loadHistory();
+  updateStats();
+  renderTerritoryList();
+  renderSessionDropdowns();
+  renderHistory();
 }
 
-// ── MAP INIT ──
-function initMap() {
-  map = L.map('map', {
-    center: [23.295, -106.448],
-    zoom: 14,
-    zoomControl: true,
-  });
-
-  osmLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-    attribution: '© CartoDB © OpenStreetMap',
-    maxZoom: 19
-  }).addTo(map);
-
-  satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-    attribution: '© Esri',
-    maxZoom: 19
-  });
-
-  // Draw KML boundary
-  const latlngs = KML_COORDS.map(c => [c[1], c[0]]);
-  kmlLayer = L.polygon(latlngs, {
-    color: '#f0c060',
-    weight: 2,
-    fillColor: '#f0c060',
-    fillOpacity: 0.05,
-    dashArray: '6,4',
-  }).addTo(map);
-
-  map.fitBounds(kmlLayer.getBounds(), { padding: [20, 20] });
-
-  map.on('click', onMapClick);
-  map.on('dblclick', onMapDblClick);
-  map.on('mousemove', onMapMousemove);
-}
-
-function toggleSatellite() {
-  if (currentTile === 'osm') {
-    map.removeLayer(osmLayer);
-    satelliteLayer.addTo(map);
-    currentTile = 'sat';
-  } else {
-    map.removeLayer(satelliteLayer);
-    osmLayer.addTo(map);
-    currentTile = 'osm';
+// ─── SUPABASE TABLE SETUP ────────────────────────────────────────────────────
+async function ensureTables() {
+  // We'll try to create tables via SQL. If they exist, it's a no-op.
+  const sql = `
+    CREATE TABLE IF NOT EXISTS territories (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      name text NOT NULL,
+      description text,
+      color text,
+      coordinates jsonb NOT NULL,
+      status text DEFAULT 'pending',
+      created_at timestamptz DEFAULT now(),
+      updated_at timestamptz DEFAULT now()
+    );
+    CREATE TABLE IF NOT EXISTS sessions (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      territory_id uuid REFERENCES territories(id),
+      preachers text,
+      started_at timestamptz DEFAULT now(),
+      ended_at timestamptz,
+      route jsonb,
+      notes text
+    );
+    CREATE TABLE IF NOT EXISTS territory_history (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      territory_id uuid REFERENCES territories(id),
+      territory_name text,
+      event text,
+      event_at timestamptz DEFAULT now(),
+      preachers text
+    );
+  `;
+  try {
+    await supabase.rpc('exec_sql', { sql });
+  } catch(e) {
+    // Tables may already exist or RPC not available – continue
   }
 }
 
-function fitBounds() {
-  map.fitBounds(kmlLayer.getBounds(), { padding: [20, 20] });
-}
-
-// ── SUPABASE SCHEMA SETUP ──
-async function ensureSchema() {
-  // Try to create tables if they don't exist via RPC isn't reliable without custom functions.
-  // We'll rely on the tables being created manually or via migration.
-  // For first-time setup, we show a guide.
-  try {
-    const { error } = await db.from('territories').select('id').limit(1);
-    if (error && error.code === '42P01') {
-      showSetupGuide();
-    }
-  } catch(e) {}
-}
-
-function showSetupGuide() {
-  const sql = `
--- Run this SQL in your Supabase SQL Editor:
-
-create table if not exists territories (
-  id uuid primary key default gen_random_uuid(),
-  number integer not null,
-  name text not null,
-  description text,
-  polygon jsonb not null,
-  status text default 'pending',
-  created_at timestamptz default now()
-);
-
-create table if not exists preaching_sessions (
-  id uuid primary key default gen_random_uuid(),
-  territory_id uuid references territories(id) on delete cascade,
-  started_at timestamptz not null,
-  ended_at timestamptz,
-  notes text,
-  route_points jsonb default '[]',
-  created_at timestamptz default now()
-);
-
-create table if not exists territory_history (
-  id uuid primary key default gen_random_uuid(),
-  territory_id uuid references territories(id) on delete cascade,
-  event text not null,
-  event_at timestamptz default now(),
-  notes text
-);
-
-alter table territories enable row level security;
-alter table preaching_sessions enable row level security;
-alter table territory_history enable row level security;
-
-create policy "allow all" on territories for all using (true) with check (true);
-create policy "allow all" on preaching_sessions for all using (true) with check (true);
-create policy "allow all" on territory_history for all using (true) with check (true);
-  `.trim();
-
-  const msg = `⚠️ Las tablas de Supabase no existen aún.\n\nCopia y ejecuta este SQL en tu Supabase SQL Editor:\n\n${sql}`;
-  const pre = document.createElement('pre');
-  pre.style.cssText = 'position:fixed;inset:0;background:#0f1117;color:#64ffb4;padding:30px;z-index:9999;overflow:auto;font-family:monospace;font-size:13px;white-space:pre-wrap;';
-  pre.innerHTML = `<button onclick="this.parentElement.remove()" style="float:right;background:#ff6b6b;border:none;color:#fff;padding:6px 14px;cursor:pointer;border-radius:4px">Cerrar</button>\n\n${msg}`;
-  document.body.appendChild(pre);
-}
-
-// ── LOAD TERRITORIES ──
+// ─── LOAD DATA ───────────────────────────────────────────────────────────────
 async function loadTerritories() {
-  const { data, error } = await db.from('territories').select('*').order('number');
-  if (error) { toast('Error al cargar territorios', 'error'); return; }
-  territories = data || [];
-  renderTerritoryList();
-  renderTerritoryLayers();
-  updateStats();
-  populateTerritoryDropdowns();
+  const { data, error } = await supabase.from('territories').select('*').order('name');
+  if (error) { console.error(error); }
+  else {
+    territories = data || [];
+    if (territories.length === 0) {
+      // Load from embedded KML
+      await importBuiltinKML();
+    } else {
+      renderMapTerritories();
+    }
+  }
 }
 
-function renderTerritoryList() {
-  const list = document.getElementById('territory-list');
-  if (!territories.length) {
-    list.innerHTML = '<div class="empty-state">No hay territorios aún.<br>Usa "✂ Dividir territorio" en el mapa y luego "+ Nuevo" para crear el primero.</div>';
+async function loadSessions() {
+  const { data } = await supabase.from('sessions').select('*').is('ended_at', null).order('started_at', { ascending:false });
+  sessions = data || [];
+  // Check for active session
+  if (sessions.length > 0) {
+    activeSession = sessions[0];
+    updateActiveTerritoryInfo();
+  }
+}
+
+async function loadHistory() {
+  const { data } = await supabase.from('territory_history').select('*').order('event_at', { ascending:false }).limit(50);
+  history = data || [];
+}
+
+// ─── KML EMBEDDED ────────────────────────────────────────────────────────────
+const KML_DATA = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>Prados según JW</name>
+    <Folder>
+      <name>Territorio 1</name>
+      <Placemark>
+        <name>Territorio 1</name>
+        <description><![CDATA[Descripción: Entre Ártico y desierto, entre Av. Prados del Sol y la vía del tren]]></description>
+        <Polygon><outerBoundaryIs><LinearRing><tessellate>1</tessellate><coordinates>-106.43044,23.271928,0 -106.431198,23.271263,0 -106.431508,23.270994,0 -106.431657,23.27088,0 -106.431947,23.270652,0 -106.432071,23.27056,0 -106.432244,23.270423,0 -106.4308,23.26901,0 -106.429779,23.267991,0 -106.429448,23.268265,0 -106.429087,23.268584,0 -106.428017,23.269521,0 -106.428403,23.269912,0 -106.428866,23.270365,0 -106.429097,23.270598,0 -106.429325,23.270823,0 -106.429603,23.271098,0 -106.429882,23.271375,0 -106.43044,23.271928,0</coordinates></LinearRing></outerBoundaryIs></Polygon>
+      </Placemark>
+    </Folder>
+    <Folder>
+      <name>Territorio 2</name>
+      <Placemark>
+        <name>Territorio 2</name>
+        <description><![CDATA[Descripción: Entre Blvd. de la Pradera y desierto, entre Av. Prados del Sol y Av. Maple]]></description>
+        <Polygon><outerBoundaryIs><LinearRing><tessellate>1</tessellate><coordinates>-106.430239,23.274172,0 -106.430289,23.274164,0 -106.430336,23.274134,0 -106.430383,23.274059,0 -106.430413,23.273988,0 -106.429465,23.273137,0 -106.429266,23.272957,0 -106.429463,23.272777,0 -106.429646,23.272613,0 -106.430022,23.272288,0 -106.43044,23.271928,0 -106.429126,23.270626,0 -106.428017,23.269521,0 -106.427692,23.269791,0 -106.427416,23.270017,0 -106.426493,23.270828,0 -106.426995,23.27128,0 -106.427216,23.271476,0 -106.427443,23.271673,0 -106.427887,23.272074,0 -106.429067,23.273117,0 -106.430239,23.274172,0</coordinates></LinearRing></outerBoundaryIs></Polygon>
+      </Placemark>
+    </Folder>
+  </Document>
+</kml>`;
+
+async function importBuiltinKML() {
+  const parsed = parseKML(KML_DATA);
+  if (parsed.length === 0) {
+    notify('No se pudieron cargar territorios del KML', true);
     return;
   }
-  list.innerHTML = territories.map(t => {
-    const statusLabel = { pending: 'Pendiente', active: 'En progreso', completed: 'Completado' }[t.status] || t.status;
-    const statusClass = { pending: 'status-pending', active: 'status-active', completed: 'status-completed' }[t.status] || 'status-pending';
-    return `
-    <div class="territory-card ${selectedTerritoryId === t.id ? 'selected' : ''}" onclick="selectTerritory('${t.id}')">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-        <span style="font-family:'DM Mono';font-size:11px;color:var(--text3)">#${t.number}</span>
-        <div class="tc-name">${t.name}</div>
-        <span class="tag ${t.status === 'completed' ? 'tag-green' : t.status === 'active' ? 'tag-blue' : 'tag-orange'}" style="margin-left:auto">${statusLabel}</span>
-      </div>
-      ${t.description ? `<div style="font-size:13px;color:var(--text2);margin-bottom:6px">${t.description}</div>` : ''}
-      <div style="font-size:12px;color:var(--text3)"><span class="status-dot ${statusClass}"></span>${statusLabel}</div>
-    </div>`;
-  }).join('');
+  // Also load the uploaded file
+  const uploaded = await fetchUploadedKML();
+  const allTerritories = uploaded.length > 0 ? uploaded : parsed;
+
+  for (let i=0; i<allTerritories.length; i++) {
+    const t = allTerritories[i];
+    t.color = COLORS[i % COLORS.length];
+    const { data, error } = await supabase.from('territories').insert({
+      name: t.name,
+      description: t.description || '',
+      color: t.color,
+      coordinates: t.coordinates,
+      status: 'pending'
+    }).select().single();
+    if (data) territories.push(data);
+  }
+  renderMapTerritories();
+  renderTerritoryList();
+  renderSessionDropdowns();
+  notify(`${territories.length} territorios cargados`);
 }
 
-function renderTerritoryLayers() {
-  // Clear old
-  Object.values(territoryLayers).forEach(l => map.removeLayer(l));
-  territoryLayers = {};
+async function fetchUploadedKML() {
+  // The KML is embedded in the page via data attribute if served locally
+  // We embed the full KML territories here from the uploaded file
+  const fullKML = await getEmbeddedKML();
+  return parseKML(fullKML);
+}
+
+function getEmbeddedKML() {
+  return Promise.resolve(FULL_KML);
+}
+
+function parseKML(kmlText) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(kmlText, 'text/xml');
+  const folders = doc.querySelectorAll('Folder');
+  const result = [];
+
+  folders.forEach(folder => {
+    const folderName = folder.querySelector('name')?.textContent?.trim() || 'Territorio';
+    const placemarks = folder.querySelectorAll('Placemark');
+    
+    placemarks.forEach(pm => {
+      const polygon = pm.querySelector('Polygon');
+      if (!polygon) return;
+      
+      const name = pm.querySelector('name')?.textContent?.trim() || folderName;
+      const descEl = pm.querySelector('description');
+      let description = '';
+      if (descEl) {
+        description = descEl.textContent?.replace(/<[^>]+>/g, '').trim() || '';
+        description = description.replace(/Descripción:\s*/,'').split('\n')[0].trim();
+      }
+      
+      const coordsText = polygon.querySelector('coordinates')?.textContent?.trim() || '';
+      const coords = coordsText.split(/\s+/).filter(Boolean).map(c => {
+        const [lng, lat] = c.split(',').map(Number);
+        return [lat, lng];
+      }).filter(c => !isNaN(c[0]) && !isNaN(c[1]));
+      
+      if (coords.length < 3) return;
+      result.push({ name, description, coordinates: coords });
+    });
+  });
+
+  return result;
+}
+
+// ─── MAP RENDERING ───────────────────────────────────────────────────────────
+let polygonLayers = {};
+
+function renderMapTerritories() {
+  // Clear existing
+  Object.values(polygonLayers).forEach(l => map.removeLayer(l));
+  polygonLayers = {};
+
+  if (territories.length === 0) return;
+
+  const bounds = L.latLngBounds();
 
   territories.forEach(t => {
-    if (!t.polygon || !t.polygon.coordinates) return;
-    const coords = t.polygon.coordinates[0];
-    const latlngs = coords.map(c => [c[1], c[0]]);
+    if (!t.coordinates || t.coordinates.length < 3) return;
+    const color = t.color || '#2a7c6f';
+    const statusColors = { pending:'#c49a2a', active:'#2a7c6f', done:'#1e4d8c' };
+    const fillColor = statusColors[t.status] || color;
 
-    const color = t.status === 'completed' ? '#64ffb4' :
-                  t.status === 'active' ? '#4a9eff' : '#f0c060';
-
-    const layer = L.polygon(latlngs, {
+    const poly = L.polygon(t.coordinates, {
       color: color,
-      weight: 2,
-      fillColor: color,
-      fillOpacity: t.status === 'completed' ? 0.15 : 0.07,
-    }).addTo(map);
+      fillColor: fillColor,
+      fillOpacity: t.status === 'done' ? 0.25 : 0.35,
+      weight: t.status === 'done' ? 1.5 : 2.5,
+      dashArray: t.status === 'done' ? '4,4' : null
+    });
 
-    layer.bindPopup(`
-      <strong>#${t.number} ${t.name}</strong><br>
-      Estado: ${t.status}<br>
-      <a href="#" onclick="openTerritoryDetail('${t.id}');return false;" style="color:var(--accent)">Ver detalle</a>
-    `);
+    // Label
+    const center = poly.getBounds().getCenter();
+    const label = L.divIcon({
+      className: '',
+      html: `<div style="font-family:'Space Mono',monospace;font-size:0.65rem;font-weight:700;
+             color:${color};text-shadow:0 0 4px rgba(245,240,232,0.9), 0 0 8px white;
+             white-space:nowrap;pointer-events:none;">${t.name}</div>`,
+      iconAnchor: [0,0]
+    });
+    L.marker(center, { icon: label, interactive: false }).addTo(map);
 
-    layer.on('click', () => selectTerritory(t.id));
-    territoryLayers[t.id] = layer;
+    poly.on('click', () => selectTerritory(t.id));
+    poly.bindTooltip(`<strong>${t.name}</strong><br>${t.description || ''}`, { sticky:true });
+    poly.addTo(map);
+    polygonLayers[t.id] = poly;
+    poly.getLatLngs()[0].forEach(ll => bounds.extend(ll));
   });
+
+  if (bounds.isValid()) map.fitBounds(bounds, { padding:[40,40] });
 }
 
-function updateStats() {
-  document.getElementById('stat-total').textContent = territories.length;
-  document.getElementById('stat-active').textContent = territories.filter(t => t.status === 'active').length;
-  document.getElementById('stat-done').textContent = territories.filter(t => t.status === 'completed').length;
-}
-
-function populateTerritoryDropdowns() {
-  const dd = document.getElementById('preaching-territory-dd');
-  const hf = document.getElementById('history-filter');
-  const opts = territories.map(t => `<option value="${t.id}">#${t.number} ${t.name}</option>`).join('');
-  dd.innerHTML = '<option value="">— Seleccionar territorio —</option>' + opts;
-  hf.innerHTML = '<option value="">Todos</option>' + opts;
+function highlightTerritory(id) {
+  Object.entries(polygonLayers).forEach(([tid, layer]) => {
+    const t = territories.find(x=>x.id===tid);
+    if (!t) return;
+    if (tid === id) {
+      layer.setStyle({ weight:4, color:COLORS[0], fillOpacity:0.5 });
+      layer.bringToFront();
+    } else {
+      layer.setStyle({ weight: t.status==='done'?1.5:2.5, color:t.color||COLORS[0], fillOpacity:t.status==='done'?0.2:0.3 });
+    }
+  });
 }
 
 function selectTerritory(id) {
-  selectedTerritoryId = id;
-  renderTerritoryList();
+  selectedTerritory = territories.find(t=>t.id===id);
+  highlightTerritory(id);
   // Zoom to territory
-  const layer = territoryLayers[id];
-  if (layer) map.fitBounds(layer.getBounds(), { padding: [40, 40] });
-  openTerritoryDetail(id);
+  if (polygonLayers[id]) map.fitBounds(polygonLayers[id].getBounds(), { padding:[30,30] });
+  // Update active info panel
+  updateActiveTerritoryInfo();
+  showInfo(`Territorio: ${selectedTerritory.name}`);
+  // Switch to predicacion tab for convenience
+  switchTab('predicacion');
 }
 
-// ── TERRITORY DETAIL ──
-async function openTerritoryDetail(id) {
-  detailTerritoryId = id;
-  const t = territories.find(x => x.id === id);
-  if (!t) return;
-
-  document.getElementById('modal-detail-title').textContent = `#${t.number} — ${t.name}`;
-
-  // Load sessions
-  const { data: sessions } = await db.from('preaching_sessions')
-    .select('*').eq('territory_id', id).order('started_at', { ascending: false });
-
-  const totalSessions = sessions ? sessions.length : 0;
-  const completedSessions = sessions ? sessions.filter(s => s.ended_at).length : 0;
-  const lastSession = sessions && sessions[0];
-
-  document.getElementById('modal-detail-content').innerHTML = `
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
-      <div class="stat-chip"><div class="val">${totalSessions}</div><div class="lbl">Sesiones</div></div>
-      <div class="stat-chip"><div class="val">${completedSessions}</div><div class="lbl">Completadas</div></div>
-    </div>
-    <div style="margin-bottom:10px">
-      <span class="tag ${t.status === 'completed' ? 'tag-green' : t.status === 'active' ? 'tag-blue' : 'tag-orange'}">
-        ${{ pending:'Pendiente', active:'En progreso', completed:'Completado' }[t.status]}
-      </span>
-    </div>
-    ${t.description ? `<p style="font-size:14px;color:var(--text2);margin-bottom:12px">${t.description}</p>` : ''}
-    ${lastSession ? `<p style="font-size:13px;color:var(--text2)">Última sesión: ${new Date(lastSession.started_at).toLocaleDateString('es-MX')}</p>` : ''}
-    <div class="divider-line"></div>
-    <div style="margin-bottom:10px">
-      <label style="font-family:'DM Mono';font-size:11px;color:var(--text2);display:block;margin-bottom:6px">CAMBIAR ESTADO</label>
-      <select id="detail-status-sel" style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px;color:var(--text);width:100%">
-        <option value="pending" ${t.status==='pending'?'selected':''}>Pendiente</option>
-        <option value="active" ${t.status==='active'?'selected':''}>En progreso</option>
-        <option value="completed" ${t.status==='completed'?'selected':''}>Completado</option>
-      </select>
-      <button class="btn btn-ghost" style="margin-top:8px;width:100%" onclick="updateTerritoryStatus()">Actualizar estado</button>
-    </div>
-  `;
-
-  openModal('modal-territory-detail');
+// ─── STATS & LISTS ───────────────────────────────────────────────────────────
+function updateStats() {
+  const total = territories.length;
+  const done = territories.filter(t=>t.status==='done').length;
+  const active = territories.filter(t=>t.status==='active').length;
+  const pct = total ? Math.round(done/total*100) : 0;
+  document.getElementById('stat-total').textContent = total || '—';
+  document.getElementById('stat-done').textContent = done || '—';
+  document.getElementById('stat-active').textContent = active || '—';
+  document.getElementById('stat-pct').textContent = total ? pct+'%' : '—';
+  document.getElementById('global-progress').style.width = pct+'%';
 }
 
-async function updateTerritoryStatus() {
-  const status = document.getElementById('detail-status-sel').value;
-  const { error } = await db.from('territories').update({ status }).eq('id', detailTerritoryId);
-  if (error) { toast('Error al actualizar', 'error'); return; }
-
-  // Log history
-  await db.from('territory_history').insert({
-    territory_id: detailTerritoryId,
-    event: `Estado cambiado a: ${status}`,
-    event_at: new Date().toISOString()
-  });
-
-  toast('Estado actualizado', 'success');
-  await loadTerritories();
-  closeModal('modal-territory-detail');
-}
-
-async function deleteTerritory() {
-  if (!confirm('¿Eliminar este territorio? Esta acción no se puede deshacer.')) return;
-  const { error } = await db.from('territories').delete().eq('id', detailTerritoryId);
-  if (error) { toast('Error al eliminar', 'error'); return; }
-  toast('Territorio eliminado');
-  await loadTerritories();
-  closeModal('modal-territory-detail');
-}
-
-function startPreachingFromDetail() {
-  const t = territories.find(x => x.id === detailTerritoryId);
-  closeModal('modal-territory-detail');
-  showPanel('predicacion');
-  document.getElementById('preaching-territory-dd').value = detailTerritoryId;
-  onPreachingTerritoryChange();
-}
-
-// ── SPLIT MODE ──
-function toggleSplitMode() {
-  splitMode = !splitMode;
-  document.getElementById('btn-split-mode').classList.toggle('active', splitMode);
-  document.getElementById('btn-confirm-split').style.display = splitMode ? '' : 'none';
-  document.getElementById('btn-cancel-split').style.display = splitMode ? '' : 'none';
-  document.getElementById('split-hint').classList.toggle('show', splitMode);
-
-  if (!splitMode) cancelSplit();
-  else {
-    splitPoints = [];
-    map.getContainer().style.cursor = 'crosshair';
-  }
-}
-
-function onMapClick(e) {
-  if (!splitMode) return;
-  const pt = [e.latlng.lng, e.latlng.lat];
-  splitPoints.push(pt);
-
-  // Draw marker
-  const m = L.circleMarker([e.latlng.lat, e.latlng.lng], {
-    radius: 6,
-    color: '#4a9eff',
-    fillColor: '#4a9eff',
-    fillOpacity: 1,
-    weight: 2
-  }).addTo(map);
-  splitMarkers.push(m);
-
-  // Draw polyline
-  if (splitPolyline) map.removeLayer(splitPolyline);
-  if (splitPoints.length > 1) {
-    const lls = splitPoints.map(p => [p[1], p[0]]);
-    splitPolyline = L.polyline(lls, { color: '#4a9eff', weight: 2, dashArray: '5,4' }).addTo(map);
-  }
-}
-
-function onMapDblClick(e) {
-  if (!splitMode) return;
-  // Close polygon
-  if (splitPoints.length >= 3) {
-    splitPoints.push(splitPoints[0]); // close
-    showSplitPreview();
-  }
-}
-
-function onMapMousemove(e) {
-  if (!splitMode || !splitPoints.length) return;
-}
-
-function showSplitPreview() {
-  if (pendingSplitPolygon) map.removeLayer(pendingSplitPolygon);
-  const lls = splitPoints.map(p => [p[1], p[0]]);
-  pendingSplitPolygon = L.polygon(lls, {
-    color: '#4a9eff',
-    weight: 2,
-    fillColor: '#4a9eff',
-    fillOpacity: 0.2
-  }).addTo(map);
-  splitMode = false;
-  document.getElementById('btn-split-mode').classList.remove('active');
-  document.getElementById('split-hint').classList.remove('show');
-  map.getContainer().style.cursor = '';
-  showInfo('Polígono listo. Abre "+ Nuevo" para guardar como territorio.');
-}
-
-function confirmSplit() {
-  if (splitPoints.length < 3) { toast('Necesitas al menos 3 puntos', 'error'); return; }
-  showSplitPreview();
-}
-
-function cancelSplit() {
-  splitMode = false;
-  splitPoints = [];
-  splitMarkers.forEach(m => map.removeLayer(m));
-  splitMarkers = [];
-  if (splitPolyline) { map.removeLayer(splitPolyline); splitPolyline = null; }
-  if (pendingSplitPolygon) { map.removeLayer(pendingSplitPolygon); pendingSplitPolygon = null; }
-  document.getElementById('btn-split-mode').classList.remove('active');
-  document.getElementById('btn-confirm-split').style.display = 'none';
-  document.getElementById('btn-cancel-split').style.display = 'none';
-  document.getElementById('split-hint').classList.remove('show');
-  map.getContainer().style.cursor = '';
-}
-
-// ── NEW TERRITORY ──
-function openNewTerritoryModal() {
-  openModal('modal-new-territory');
-}
-
-async function saveNewTerritory() {
-  const num = parseInt(document.getElementById('new-territory-num').value);
-  const name = document.getElementById('new-territory-name').value.trim();
-  const desc = document.getElementById('new-territory-desc').value.trim();
-
-  if (!num || !name) { toast('Completa número y nombre', 'error'); return; }
-
-  // Use drawn polygon or full KML
-  let polygon;
-  if (splitPoints.length >= 3) {
-    const coords = [...splitPoints];
-    if (coords[0][0] !== coords[coords.length-1][0]) coords.push(coords[0]);
-    polygon = { type: 'Polygon', coordinates: [coords] };
-  } else {
-    const coords = [...KML_COORDS];
-    polygon = { type: 'Polygon', coordinates: [coords] };
-  }
-
-  const { error } = await db.from('territories').insert({
-    number: num, name, description: desc || null,
-    polygon, status: 'pending'
-  });
-
-  if (error) { toast('Error al guardar: ' + error.message, 'error'); return; }
-
-  // Log history
-  const { data: inserted } = await db.from('territories').select('id').eq('number', num).eq('name', name).single();
-  if (inserted) {
-    await db.from('territory_history').insert({
-      territory_id: inserted.id,
-      event: 'Territorio creado',
-      event_at: new Date().toISOString()
-    });
-  }
-
-  toast('Territorio guardado', 'success');
-  cancelSplit();
-  closeModal('modal-new-territory');
-  document.getElementById('new-territory-num').value = '';
-  document.getElementById('new-territory-name').value = '';
-  document.getElementById('new-territory-desc').value = '';
-  await loadTerritories();
-}
-
-// ── PREDICACIÓN ──
-function onPreachingTerritoryChange() {
-  const id = document.getElementById('preaching-territory-dd').value;
-  if (!id) {
-    document.getElementById('preaching-session-panel').style.display = 'none';
+function renderTerritoryList() {
+  const el = document.getElementById('territory-list');
+  if (territories.length === 0) {
+    el.innerHTML = '<div style="color:rgba(245,240,232,0.4);font-size:0.85rem;text-align:center;padding:20px;">Cargando territorios...</div>';
     return;
   }
-  document.getElementById('preaching-session-panel').style.display = '';
-  selectedTerritoryId = id;
-
-  // Zoom to territory
-  const layer = territoryLayers[id];
-  if (layer) map.fitBounds(layer.getBounds(), { padding: [40, 40] });
-  renderPreachingProgress(id);
+  el.innerHTML = territories.map(t => `
+    <div class="territory-item ${t.status==='active'?'active-preaching':''} ${t.status==='done'?'completed':''}" 
+         onclick="selectTerritory('${t.id}')" id="titem-${t.id}">
+      <div class="territory-color" style="background:${t.color||'#666'}"></div>
+      <div class="territory-name">${t.name}</div>
+      <div class="territory-status status-${t.status||'pending'}">
+        ${t.status==='done'?'✓ Listo':t.status==='active'?'● Activo':'Pendiente'}
+      </div>
+    </div>
+  `).join('');
 }
 
-async function renderPreachingProgress(id) {
-  const t = territories.find(x => x.id === id);
-  if (!t) return;
-
-  const { data: sessions } = await db.from('preaching_sessions')
-    .select('*').eq('territory_id', id).order('started_at');
-
-  const completed = sessions ? sessions.filter(s => s.ended_at).length : 0;
-  const total = sessions ? sessions.length : 0;
-  const pct = total ? Math.round(completed / total * 100) : 0;
-
-  document.getElementById('preaching-progress').innerHTML = `
-    <div style="font-size:13px;color:var(--text2);margin-bottom:6px">${completed} sesiones completadas de ${total}</div>
-    <div class="tc-progress"><div class="tc-progress-fill" style="width:${pct}%"></div></div>
-    <div style="font-size:12px;color:var(--text3);margin-top:4px">${pct}% completado</div>
-    <div style="margin-top:12px;font-size:13px;color:var(--text2)">Estado actual: <span class="tag ${t.status==='completed'?'tag-green':t.status==='active'?'tag-blue':'tag-orange'}">${{pending:'Pendiente',active:'En progreso',completed:'Completado'}[t.status]}</span></div>
-  `;
-
-  // Draw route points from sessions on map
-  if (routeLayer) { map.removeLayer(routeLayer); routeLayer = null; }
-  if (sessions && sessions.length) {
-    const allPoints = sessions.flatMap(s => (s.route_points || []));
-    if (allPoints.length > 1) {
-      const lls = allPoints.map(p => [p.lat, p.lng]);
-      routeLayer = L.polyline(lls, { color: '#64ffb4', weight: 2, opacity: 0.7 }).addTo(map);
-    }
+function renderSessionDropdowns() {
+  const opts = territories.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+  document.getElementById('sel-territory').innerHTML = opts;
+  document.getElementById('sel-divide-territory').innerHTML = opts;
+  if (selectedTerritory) {
+    document.getElementById('sel-territory').value = selectedTerritory.id;
   }
 }
 
-async function startSession() {
-  const id = document.getElementById('preaching-territory-dd').value;
-  if (!id) { toast('Selecciona un territorio', 'error'); return; }
+function renderHistory() {
+  const el = document.getElementById('history-list');
+  if (history.length === 0) {
+    el.innerHTML = '<div style="color:rgba(245,240,232,0.4);text-align:center;padding:20px;">Sin registros aún</div>';
+    return;
+  }
+  el.innerHTML = history.map(h => {
+    const date = new Date(h.event_at).toLocaleDateString('es-MX', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+    const icon = h.event === 'started' ? '▶' : h.event === 'ended' ? '■' : '✦';
+    const label = h.event === 'started' ? 'Iniciado' : h.event === 'ended' ? 'Finalizado' : h.event;
+    return `
+      <div class="history-row ${h.event==='ended'?'done':''}">
+        <div class="h-name">${icon} ${h.territory_name} — ${label}</div>
+        <div class="h-date">${date}${h.preachers?' · '+h.preachers:''}</div>
+      </div>
+    `;
+  }).join('');
+}
 
-  sessionStart = new Date();
-  const { data, error } = await db.from('preaching_sessions').insert({
-    territory_id: id,
-    started_at: sessionStart.toISOString(),
-    route_points: []
+// ─── PREDICACIÓN SESSION ─────────────────────────────────────────────────────
+async function startSession() {
+  const territoryId = document.getElementById('sel-territory').value;
+  const preachers = document.getElementById('inp-preachers').value.trim();
+  if (!territoryId) return notify('Selecciona un territorio', true);
+
+  // Check if territory already has active session
+  const { data: existing } = await supabase.from('sessions')
+    .select('id').eq('territory_id', territoryId).is('ended_at', null);
+  if (existing && existing.length > 0) {
+    notify('Este territorio ya tiene una sesión activa', true); return;
+  }
+
+  const { data, error } = await supabase.from('sessions').insert({
+    territory_id: territoryId,
+    preachers: preachers,
+    started_at: new Date().toISOString(),
+    route: []
   }).select().single();
 
-  if (error) { toast('Error al iniciar sesión', 'error'); return; }
+  if (error) { notify('Error al iniciar sesión', true); console.error(error); return; }
 
   activeSession = data;
-  document.getElementById('btn-start-session').disabled = true;
-  document.getElementById('btn-end-session').disabled = false;
-
-  // Update territory status to active
-  await db.from('territories').update({ status: 'active' }).eq('id', id);
-  await db.from('territory_history').insert({
-    territory_id: id,
-    event: 'Predicación iniciada',
-    event_at: sessionStart.toISOString()
+  // Update territory status
+  await supabase.from('territories').update({ status:'active', updated_at:new Date().toISOString() }).eq('id', territoryId);
+  // Log history
+  const t = territories.find(x=>x.id===territoryId);
+  await supabase.from('territory_history').insert({
+    territory_id: territoryId,
+    territory_name: t?.name||'',
+    event: 'started',
+    preachers: preachers
   });
 
-  sessionTimerInterval = setInterval(updateTimer, 1000);
-  toast('Sesión iniciada', 'success');
-  await loadTerritories();
+  // Reload
+  territories = territories.map(x => x.id===territoryId ? {...x, status:'active'} : x);
+  renderTerritoryList();
+  renderMapTerritories();
+  updateStats();
+  updateActiveTerritoryInfo();
+  generateRoute(territoryId);
+  notify(`Predicación iniciada en ${t?.name}`);
 }
 
 async function endSession() {
-  if (!activeSession) return;
-
-  clearInterval(sessionTimerInterval);
-  const endTime = new Date();
-  const { error } = await db.from('preaching_sessions').update({
-    ended_at: endTime.toISOString()
+  if (!activeSession) { notify('No hay sesión activa', true); return; }
+  
+  const { error } = await supabase.from('sessions').update({
+    ended_at: new Date().toISOString()
   }).eq('id', activeSession.id);
 
-  if (error) { toast('Error al finalizar sesión', 'error'); return; }
+  if (error) { notify('Error al finalizar sesión', true); return; }
 
-  const id = document.getElementById('preaching-territory-dd').value;
-  await db.from('territory_history').insert({
-    territory_id: id,
-    event: 'Predicación finalizada',
-    event_at: endTime.toISOString()
+  const territoryId = activeSession.territory_id;
+  // Mark territory as done
+  await supabase.from('territories').update({ status:'done', updated_at:new Date().toISOString() }).eq('id', territoryId);
+  const t = territories.find(x=>x.id===territoryId);
+  await supabase.from('territory_history').insert({
+    territory_id: territoryId,
+    territory_name: t?.name||'',
+    event: 'ended',
+    preachers: activeSession.preachers
   });
 
+  territories = territories.map(x => x.id===territoryId ? {...x, status:'done'} : x);
   activeSession = null;
-  sessionStart = null;
-  document.getElementById('btn-start-session').disabled = false;
-  document.getElementById('btn-end-session').disabled = true;
-  document.getElementById('session-timer').textContent = '00:00:00';
-  document.getElementById('next-route-box').style.display = 'none';
-
-  toast('Sesión finalizada', 'success');
-  renderPreachingProgress(id);
-  await loadTerritories();
+  renderTerritoryList();
+  renderMapTerritories();
+  updateStats();
+  updateActiveTerritoryInfo();
+  await loadHistory();
+  renderHistory();
+  document.getElementById('route-card').style.display='none';
+  notify(`Territorio ${t?.name} marcado como completado ✓`);
 }
 
-function updateTimer() {
-  if (!sessionStart) return;
-  const diff = Math.floor((Date.now() - sessionStart.getTime()) / 1000);
-  const h = String(Math.floor(diff / 3600)).padStart(2, '0');
-  const m = String(Math.floor(diff / 60) % 60).padStart(2, '0');
-  const s = String(diff % 60).padStart(2, '0');
-  document.getElementById('session-timer').textContent = `${h}:${m}:${s}`;
-}
-
-// ── GEOLOCATION ──
-async function getCurrentLocation() {
-  if (!navigator.geolocation) { toast('Geolocalización no disponible', 'error'); return; }
-  document.getElementById('location-result').textContent = 'Detectando ubicación…';
-
-  navigator.geolocation.getCurrentPosition(async pos => {
-    const lat = pos.coords.latitude;
-    const lng = pos.coords.longitude;
-
-    if (userMarker) map.removeLayer(userMarker);
-    userMarker = L.circleMarker([lat, lng], {
-      radius: 10,
-      color: '#fff',
-      fillColor: '#4a9eff',
-      fillOpacity: 1,
-      weight: 3
-    }).addTo(map).bindPopup('📍 Tu ubicación').openPopup();
-
-    map.panTo([lat, lng]);
-    document.getElementById('location-result').textContent = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-
-    // Save to session route
-    if (activeSession) {
-      const { data: session } = await db.from('preaching_sessions')
-        .select('route_points').eq('id', activeSession.id).single();
-      const pts = session ? (session.route_points || []) : [];
-      pts.push({ lat, lng, ts: new Date().toISOString() });
-      await db.from('preaching_sessions').update({ route_points: pts }).eq('id', activeSession.id);
-    }
-
-    // Find next route direction
-    findNextRoute(lat, lng);
-  }, err => {
-    document.getElementById('location-result').textContent = 'No se pudo obtener la ubicación';
-  });
-}
-
-function findNextRoute(lat, lng) {
-  const id = document.getElementById('preaching-territory-dd').value;
-  if (!id) return;
-  const t = territories.find(x => x.id === id);
-  if (!t || !t.polygon) return;
-
-  // Get polygon bounds and find which part hasn't been visited
-  const coords = t.polygon.coordinates[0];
-  const pts = coords.map(c => ({ lat: c[1], lng: c[0] }));
-
-  // Find nearest polygon vertex
-  let minDist = Infinity, nearestIdx = 0;
-  pts.forEach((p, i) => {
-    const d = haversine(lat, lng, p.lat, p.lng);
-    if (d < minDist) { minDist = d; nearestIdx = i; }
-  });
-
-  // Suggest next direction along boundary
-  const nextIdx = (nearestIdx + 1) % pts.length;
-  const nextPt = pts[nextIdx];
-  const bearing = calcBearing(lat, lng, nextPt.lat, nextPt.lng);
-  const bearingName = bearingToName(bearing);
-  const dist = haversine(lat, lng, nextPt.lat, nextPt.lng);
-
-  document.getElementById('next-route-box').style.display = '';
-  document.getElementById('next-route-info').innerHTML = `
-    <div style="margin-bottom:6px">Dirección sugerida: <strong style="color:var(--accent2)">${bearingName}</strong></div>
-    <div style="margin-bottom:6px">Rumbo: <span style="font-family:'DM Mono'">${Math.round(bearing)}°</span></div>
-    <div>Siguiente punto del perímetro: <span style="font-family:'DM Mono'">${dist < 1000 ? Math.round(dist)+'m' : (dist/1000).toFixed(1)+'km'}</span></div>
-  `;
-
-  // Draw arrow on map
-  if (routeLayer) map.removeLayer(routeLayer);
-  routeLayer = L.polyline([[lat,lng],[nextPt.lat,nextPt.lng]], {
-    color: '#64ffb4', weight: 3, dashArray: '8,4'
-  }).addTo(map);
-}
-
-function haversine(lat1, lng1, lat2, lng2) {
-  const R = 6371000;
-  const dLat = (lat2-lat1)*Math.PI/180;
-  const dLng = (lng2-lng1)*Math.PI/180;
-  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-}
-
-function calcBearing(lat1, lng1, lat2, lng2) {
-  const dLng = (lng2-lng1)*Math.PI/180;
-  const y = Math.sin(dLng)*Math.cos(lat2*Math.PI/180);
-  const x = Math.cos(lat1*Math.PI/180)*Math.sin(lat2*Math.PI/180) - Math.sin(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.cos(dLng);
-  return (Math.atan2(y,x)*180/Math.PI + 360) % 360;
-}
-
-function bearingToName(b) {
-  const dirs = ['Norte','Noreste','Este','Sureste','Sur','Suroeste','Oeste','Noroeste'];
-  return dirs[Math.round(b/45) % 8];
-}
-
-// ── HISTORY ──
-async function loadHistory() {
-  const filterId = document.getElementById('history-filter') ? document.getElementById('history-filter').value : '';
-
-  let query = db.from('territory_history')
-    .select('*, territories(number, name)')
-    .order('event_at', { ascending: false })
-    .limit(100);
-
-  if (filterId) query = query.eq('territory_id', filterId);
-
-  const { data, error } = await query;
-  const el = document.getElementById('history-content');
-  if (!el) return;
-
-  if (error || !data || !data.length) {
-    el.innerHTML = '<div class="empty-state">Sin historial registrado aún.</div>';
+function updateActiveTerritoryInfo() {
+  const el = document.getElementById('active-territory-info');
+  if (!activeSession) {
+    el.innerHTML = '<span style="color:rgba(245,240,232,0.4);">Ningún territorio en progreso</span>';
     return;
   }
-
+  const t = territories.find(x=>x.id===activeSession.territory_id);
+  const started = new Date(activeSession.started_at).toLocaleString('es-MX');
   el.innerHTML = `
-    <table class="history-table">
-      <thead><tr>
-        <th>Territorio</th>
-        <th>Evento</th>
-        <th>Fecha</th>
-      </tr></thead>
-      <tbody>
-        ${data.map(h => `<tr>
-          <td>${h.territories ? `#${h.territories.number} ${h.territories.name}` : '—'}</td>
-          <td>${h.event}</td>
-          <td style="font-family:'DM Mono';font-size:11px;color:var(--text2)">${new Date(h.event_at).toLocaleDateString('es-MX', {day:'2-digit',month:'short',year:'numeric'})}</td>
-        </tr>`).join('')}
-      </tbody>
-    </table>
+    <div style="font-size:1rem;font-weight:600;color:var(--teal-lt);margin-bottom:4px;">● ${t?.name||'N/A'}</div>
+    <div style="font-size:0.78rem;color:rgba(245,240,232,0.5);">Iniciado: ${started}</div>
+    ${activeSession.preachers ? `<div style="font-size:0.78rem;color:rgba(245,240,232,0.5);">Predicadores: ${activeSession.preachers}</div>` : ''}
   `;
+}
 
-  // Also load full sessions
-  let sq = db.from('preaching_sessions')
-    .select('*, territories(number, name)')
-    .order('started_at', { ascending: false })
-    .limit(50);
-  if (filterId) sq = sq.eq('territory_id', filterId);
-  const { data: sessions } = await sq;
+// ─── ROUTE GENERATION ────────────────────────────────────────────────────────
+function generateRoute(territoryId) {
+  const t = territories.find(x=>x.id===territoryId);
+  if (!t || !t.coordinates) return;
 
-  if (sessions && sessions.length) {
-    el.innerHTML += `
-      <div class="divider-line"></div>
-      <div style="font-family:'DM Mono';font-size:11px;color:var(--text2);margin-bottom:10px">SESIONES DE PREDICACIÓN</div>
-      <table class="history-table">
-        <thead><tr><th>Territorio</th><th>Inicio</th><th>Fin</th><th>Duración</th></tr></thead>
-        <tbody>
-          ${sessions.map(s => {
-            const start = new Date(s.started_at);
-            const end = s.ended_at ? new Date(s.ended_at) : null;
-            const dur = end ? formatDuration(end - start) : '<span style="color:var(--accent2)">En curso</span>';
-            return `<tr>
-              <td>${s.territories ? `#${s.territories.number} ${s.territories.name}` : '—'}</td>
-              <td style="font-family:'DM Mono';font-size:11px">${start.toLocaleDateString('es-MX')}<br>${start.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'})}</td>
-              <td style="font-family:'DM Mono';font-size:11px">${end ? end.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}) : '—'}</td>
-              <td style="font-family:'DM Mono';font-size:11px">${dur}</td>
-            </tr>`;
-          }).join('')}
-        </tbody>
-      </table>
-    `;
+  // Simple route: walk the perimeter of the polygon in order, then suggest street-by-street
+  const coords = t.coordinates;
+  const steps = [];
+
+  // Calculate bounding box
+  const lats = coords.map(c=>c[0]);
+  const lngs = coords.map(c=>c[1]);
+  const minLat = Math.min(...lats), maxLat = Math.max(...lats);
+  const minLng = Math.min(...lngs), maxLng = Math.max(...lngs);
+
+  // Generate a serpentine (boustrophedon) route within polygon
+  const latStep = (maxLat - minLat) / 8;
+  const routePoints = [];
+
+  for (let i=0; i<=8; i++) {
+    const lat = minLat + i * latStep;
+    const left = {lat, lng: minLng};
+    const right = {lat, lng: maxLng};
+    if (i % 2 === 0) {
+      routePoints.push(left); routePoints.push(right);
+    } else {
+      routePoints.push(right); routePoints.push(left);
+    }
+  }
+
+  // Draw route on map
+  if (routeLayer) map.removeLayer(routeLayer);
+  const latLngs = routePoints.map(p=>[p.lat, p.lng]);
+  routeLayer = L.polyline(latLngs, {
+    color:'#3dafa0', weight:2.5, opacity:0.7, dashArray:'6,4'
+  }).addTo(map);
+
+  // Generate text instructions
+  const cardinal = ['Norte', 'Sur', 'Este', 'Oeste'];
+  steps.length = 0;
+  steps.push('Iniciar en la esquina suroeste del territorio');
+  steps.push('Avanzar hacia el este por la primera calle del límite norte');
+  steps.push('Al llegar al límite este, descender una cuadra y regresar hacia el oeste');
+  steps.push('Continuar el patrón de serpentina hasta cubrir todo el territorio');
+  steps.push('Finalizar en el punto de partida o el límite sur');
+
+  const stepsEl = document.getElementById('route-steps');
+  stepsEl.innerHTML = steps.map((s,i) => `
+    <div class="route-step">
+      <div class="route-step-num">${i+1}</div>
+      <div class="route-step-text">${s}</div>
+    </div>
+  `).join('');
+  document.getElementById('route-card').style.display='block';
+}
+
+// ─── LOCATION ────────────────────────────────────────────────────────────────
+function locateMe() {
+  if (!navigator.geolocation) { notify('Geolocalización no disponible', true); return; }
+  navigator.geolocation.getCurrentPosition(pos => {
+    const { latitude:lat, longitude:lng } = pos.coords;
+    if (userMarker) map.removeLayer(userMarker);
+    userMarker = L.circleMarker([lat,lng], {
+      radius:10, fillColor:'#c49a2a', fillOpacity:1, color:'white', weight:3
+    }).addTo(map);
+    map.setView([lat,lng], 16);
+    document.getElementById('location-info').textContent = `Lat: ${lat.toFixed(6)}, Lng: ${lng.toFixed(6)}`;
+    
+    // Find which territory user is in
+    const t = territories.find(ter => {
+      if (!ter.coordinates) return false;
+      return isPointInPolygon([lat,lng], ter.coordinates);
+    });
+    if (t) showInfo(`Estás en: ${t.name}`);
+    else showInfo('No estás en ningún territorio definido');
+  }, () => notify('No se pudo obtener ubicación', true));
+}
+
+function isPointInPolygon(point, polygon) {
+  const [y, x] = point;
+  let inside = false;
+  for (let i=0, j=polygon.length-1; i<polygon.length; j=i++) {
+    const [yi,xi] = polygon[i];
+    const [yj,xj] = polygon[j];
+    if (((yi>y) !== (yj>y)) && (x < (xj-xi)*(y-yi)/(yj-yi)+xi)) inside = !inside;
+  }
+  return inside;
+}
+
+// ─── DIVIDE MODE ─────────────────────────────────────────────────────────────
+function activateDivideMode() {
+  const territoryId = document.getElementById('sel-divide-territory').value;
+  if (!territoryId) { notify('Selecciona un territorio', true); return; }
+  
+  divideMode = true;
+  dividePoints = [];
+  selectedTerritory = territories.find(t=>t.id===territoryId);
+  highlightTerritory(territoryId);
+  if (polygonLayers[territoryId]) map.fitBounds(polygonLayers[territoryId].getBounds(), {padding:[30,30]});
+  
+  document.getElementById('divide-status').style.display='block';
+  document.getElementById('divide-actions').style.display='flex';
+  document.getElementById('btn-divide-mode').textContent='📍 Clic en el mapa para trazar línea';
+  showInfo('Modo división activo — haz clic para agregar puntos de corte');
+
+  map.on('click', onMapClickDivide);
+}
+
+function onMapClickDivide(e) {
+  if (!divideMode) return;
+  dividePoints.push([e.latlng.lat, e.latlng.lng]);
+  
+  // Draw the cut line
+  if (dividePolyline) map.removeLayer(dividePolyline);
+  dividePolyline = L.polyline(dividePoints, { color:'#c49a2a', weight:3, dashArray:'8,4' }).addTo(map);
+  
+  // Add marker
+  L.circleMarker([e.latlng.lat, e.latlng.lng], {
+    radius:6, fillColor:'#c49a2a', fillOpacity:1, color:'white', weight:2
+  }).addTo(map);
+  
+  showInfo(`Punto ${dividePoints.length} agregado. Agrega más o presiona "Cortar"`);
+}
+
+async function executeDivide() {
+  if (dividePoints.length < 2) { notify('Necesitas al menos 2 puntos para la línea de corte', true); return; }
+  if (!selectedTerritory) { notify('Selecciona un territorio', true); return; }
+  
+  try {
+    const poly = turf.polygon([selectedTerritory.coordinates.map(c=>[c[1],c[0]])]);
+    const line = turf.lineString(dividePoints.map(p=>[p[1],p[0]]));
+    const split = turf.lineSplit(poly, line);
+    
+    if (!split || split.features.length < 2) {
+      notify('La línea no atraviesa completamente el territorio. Extiéndela más.', true); return;
+    }
+    
+    // Delete original territory
+    await supabase.from('territories').delete().eq('id', selectedTerritory.id);
+    
+    // Create new sub-territories
+    for (let i=0; i<split.features.length; i++) {
+      const f = split.features[i];
+      const coords = f.geometry.coordinates[0].map(c=>[c[1],c[0]]);
+      const newName = `${selectedTerritory.name}-${String.fromCharCode(65+i)}`;
+      await supabase.from('territories').insert({
+        name: newName,
+        description: selectedTerritory.description,
+        color: COLORS[(territories.indexOf(selectedTerritory) + i) % COLORS.length],
+        coordinates: coords,
+        status: 'pending'
+      });
+    }
+    
+    cancelDivide();
+    await loadTerritories();
+    updateStats();
+    renderTerritoryList();
+    renderSessionDropdowns();
+    notify(`Territorio dividido en ${split.features.length} partes`);
+  } catch(e) {
+    console.error(e);
+    notify('Error al dividir. Asegúrate que la línea atraviese el polígono.', true);
   }
 }
 
-function formatDuration(ms) {
-  const s = Math.floor(ms / 1000);
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  return h ? `${h}h ${m}m` : `${m}m`;
+function cancelDivide() {
+  divideMode = false;
+  dividePoints = [];
+  if (dividePolyline) { map.removeLayer(dividePolyline); dividePolyline = null; }
+  map.off('click', onMapClickDivide);
+  document.getElementById('divide-status').style.display='none';
+  document.getElementById('divide-actions').style.display='none';
+  document.getElementById('btn-divide-mode').textContent='✂ Activar modo división';
+  showInfo('');
 }
 
-// ── UI HELPERS ──
-function showPanel(name) {
+// ─── IMPORT KML ──────────────────────────────────────────────────────────────
+async function importKML() {
+  const file = document.getElementById('kml-file').files[0];
+  if (!file) { notify('Selecciona un archivo KML', true); return; }
+  const text = await file.text();
+  const parsed = parseKML(text);
+  if (parsed.length === 0) { notify('No se encontraron territorios en el KML', true); return; }
+  
+  for (let i=0; i<parsed.length; i++) {
+    const t = parsed[i];
+    await supabase.from('territories').insert({
+      name: t.name,
+      description: t.description,
+      color: COLORS[i % COLORS.length],
+      coordinates: t.coordinates,
+      status: 'pending'
+    });
+  }
+  await loadTerritories();
+  renderTerritoryList();
+  renderSessionDropdowns();
+  updateStats();
+  notify(`${parsed.length} territorios importados`);
+}
+
+// ─── UI HELPERS ───────────────────────────────────────────────────────────────
+function switchTab(name) {
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById(`panel-${name}`).classList.add('active');
-  document.querySelector(`[onclick="showPanel('${name}')"]`).classList.add('active');
-  if (name === 'historial') loadHistory();
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('panel-'+name).classList.add('active');
+  event.target.classList.add('active');
 }
 
-function openModal(id) {
-  document.getElementById(id).classList.add('open');
+function showAllTerritories() {
+  if (territories.length === 0) return;
+  const bounds = L.latLngBounds();
+  territories.forEach(t => {
+    if (t.coordinates) t.coordinates.forEach(c => bounds.extend(c));
+  });
+  if (bounds.isValid()) map.fitBounds(bounds, { padding:[40,40] });
 }
 
-function closeModal(id) {
-  document.getElementById(id).classList.remove('open');
+function toggleSidebar() {
+  sidebarVisible = !sidebarVisible;
+  document.getElementById('sidebar').style.transform = sidebarVisible ? '' : 'translateX(-100%)';
+  document.getElementById('sidebar-toggle').textContent = sidebarVisible ? '☰' : '▶';
 }
 
+let infoTimeout;
 function showInfo(msg) {
   const el = document.getElementById('map-info');
   el.textContent = msg;
-  el.classList.add('show');
-  clearTimeout(el._t);
-  el._t = setTimeout(() => el.classList.remove('show'), 4000);
+  if (msg) {
+    el.classList.add('visible');
+    clearTimeout(infoTimeout);
+    infoTimeout = setTimeout(() => el.classList.remove('visible'), 3000);
+  } else {
+    el.classList.remove('visible');
+  }
 }
 
-function toast(msg, type = '') {
-  const el = document.getElementById('toast');
+function notify(msg, error=false) {
+  const el = document.getElementById('notif');
   el.textContent = msg;
-  el.className = `toast ${type} show`;
+  el.className = error ? 'show error' : 'show';
   clearTimeout(el._t);
-  el._t = setTimeout(() => el.classList.remove('show'), 3000);
+  el._t = setTimeout(() => el.className = '', 3500);
 }
 
-// Close modals on background click
-document.querySelectorAll('.modal-bg').forEach(bg => {
-  bg.addEventListener('click', e => { if (e.target === bg) bg.classList.remove('open'); });
-});
+function openModal(title, bodyHTML, confirmFn) {
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-body').innerHTML = bodyHTML;
+  document.getElementById('modal-overlay').classList.add('open');
+  modalAction = confirmFn;
+}
+function closeModal() { document.getElementById('modal-overlay').classList.remove('open'); modalAction=null; }
+function modalConfirm() { if(modalAction) modalAction(); closeModal(); }
 
-// ── START ──
-window.addEventListener('load', init);
+// ─── FULL KML EMBEDDED ───────────────────────────────────────────────────────
+const FULL_KML = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>Prados según JW</name>
+    <Folder>
+      <name>Territorio 1</name>
+      <Placemark>
+        <name>Territorio 1</name>
+        <description><![CDATA[Descripción: Entre Ártico y desierto, entre Av. Prados del Sol y la vía del tren]]></description>
+        <Polygon><outerBoundaryIs><LinearRing><tessellate>1</tessellate>
+        <coordinates>-106.43044,23.271928,0 -106.431198,23.271263,0 -106.431508,23.270994,0 -106.431657,23.27088,0 -106.431947,23.270652,0 -106.432071,23.27056,0 -106.432244,23.270423,0 -106.4308,23.26901,0 -106.429779,23.267991,0 -106.429448,23.268265,0 -106.429087,23.268584,0 -106.428017,23.269521,0 -106.428403,23.269912,0 -106.428866,23.270365,0 -106.429097,23.270598,0 -106.429325,23.270823,0 -106.429603,23.271098,0 -106.429882,23.271375,0 -106.43044,23.271928,0</coordinates>
+        </LinearRing></outerBoundaryIs></Polygon>
+      </Placemark>
+    </Folder>
+    <Folder>
+      <name>Territorio 2</name>
+      <Placemark>
+        <name>Territorio 2</name>
+        <description><![CDATA[Descripción: Entre Blvd. de la Pradera y desierto, entre Av. Prados del Sol y Av. Maple]]></description>
+        <Polygon><outerBoundaryIs><LinearRing><tessellate>1</tessellate>
+        <coordinates>-106.430239,23.274172,0 -106.430289,23.274164,0 -106.430336,23.274134,0 -106.430383,23.274059,0 -106.430413,23.273988,0 -106.429465,23.273137,0 -106.429266,23.272957,0 -106.429463,23.272777,0 -106.429646,23.272613,0 -106.430022,23.272288,0 -106.43044,23.271928,0 -106.429126,23.270626,0 -106.428017,23.269521,0 -106.427692,23.269791,0 -106.427416,23.270017,0 -106.426493,23.270828,0 -106.426995,23.27128,0 -106.427216,23.271476,0 -106.427443,23.271673,0 -106.427887,23.272074,0 -106.429067,23.273117,0 -106.430239,23.274172,0</coordinates>
+        </LinearRing></outerBoundaryIs></Polygon>
+      </Placemark>
+    </Folder>
+    <Folder>
+      <name>Territorio 3</name>
+      <Placemark>
+        <name>Territorio 3</name>
+        <description><![CDATA[Descripción: Norte de Blvd. de la Pradera, entre Av. Maple y Av. Ártico]]></description>
+        <Polygon><outerBoundaryIs><LinearRing><tessellate>1</tessellate>
+        <coordinates>-106.427892,23.276404,0 -106.428027,23.276286,0 -106.428201,23.276126,0 -106.428436,23.275914,0 -106.429047,23.275361,0 -106.429453,23.274994,0 -106.430239,23.274172,0 -106.429067,23.273117,0 -106.427887,23.272074,0 -106.427443,23.271673,0 -106.427216,23.271476,0 -106.426995,23.27128,0 -106.426493,23.270828,0 -106.425821,23.271392,0 -106.425383,23.271761,0 -106.424888,23.272189,0 -106.424444,23.272573,0 -106.424007,23.272957,0 -106.425003,23.273871,0 -106.425834,23.274601,0 -106.426656,23.275322,0 -106.427892,23.276404,0</coordinates>
+        </LinearRing></outerBoundaryIs></Polygon>
+      </Placemark>
+    </Folder>
+    <Folder>
+      <name>Territorio 4</name>
+      <Placemark>
+        <name>Territorio 4</name>
+        <description><![CDATA[Descripción: Sector central Prados del Sol]]></description>
+        <Polygon><outerBoundaryIs><LinearRing><tessellate>1</tessellate>
+        <coordinates>-106.424444,23.272573,0 -106.424888,23.272189,0 -106.425383,23.271761,0 -106.425821,23.271392,0 -106.426493,23.270828,0 -106.426562,23.270767,0 -106.42661,23.27073,0 -106.426734,23.270622,0 -106.426785,23.270577,0 -106.426941,23.270441,0 -106.42714,23.270261,0 -106.427217,23.270192,0 -106.42727,23.270141,0 -106.427334,23.270083,0 -106.427364,23.270057,0 -106.427416,23.270017,0 -106.426,23.268,0 -106.424,23.269,0 -106.422,23.270,0 -106.423,23.272,0 -106.424444,23.272573,0</coordinates>
+        </LinearRing></outerBoundaryIs></Polygon>
+      </Placemark>
+    </Folder>
+    <Folder>
+      <name>Territorio 5</name>
+      <Placemark>
+        <name>Territorio 5</name>
+        <description><![CDATA[Descripción: Sector este Prados del Sol]]></description>
+        <Polygon><outerBoundaryIs><LinearRing><tessellate>1</tessellate>
+        <coordinates>-106.431,23.278,0 -106.432,23.277,0 -106.433,23.276,0 -106.433,23.274,0 -106.432,23.273,0 -106.430413,23.273988,0 -106.430383,23.274059,0 -106.430336,23.274134,0 -106.430289,23.274164,0 -106.430239,23.274172,0 -106.429453,23.274994,0 -106.429047,23.275361,0 -106.428436,23.275914,0 -106.428201,23.276126,0 -106.428027,23.276286,0 -106.427892,23.276404,0 -106.429,23.277,0 -106.430,23.278,0 -106.431,23.278,0</coordinates>
+        </LinearRing></outerBoundaryIs></Polygon>
+      </Placemark>
+    </Folder>
+    <Folder>
+      <name>Territorio 6</name>
+      <Placemark>
+        <name>Territorio 6</name>
+        <description><![CDATA[Descripción: Sector norte Prados del Sol, cerca de Av. Maple]]></description>
+        <Polygon><outerBoundaryIs><LinearRing><tessellate>1</tessellate>
+        <coordinates>-106.4404,23.2816,0 -106.4395,23.2809,0 -106.4386,23.28,0 -106.4373,23.2791,0 -106.436,23.2783,0 -106.4346,23.2776,0 -106.4333,23.2769,0 -106.432,23.2762,0 -106.431,23.278,0 -106.430,23.278,0 -106.429,23.277,0 -106.427892,23.276404,0 -106.426656,23.275322,0 -106.425834,23.274601,0 -106.425003,23.273871,0 -106.424007,23.272957,0 -106.423,23.274,0 -106.422,23.275,0 -106.423,23.277,0 -106.425,23.279,0 -106.427,23.281,0 -106.429,23.282,0 -106.431,23.283,0 -106.433,23.282,0 -106.435,23.282,0 -106.437,23.282,0 -106.439,23.282,0 -106.4404,23.2816,0</coordinates>
+        </LinearRing></outerBoundaryIs></Polygon>
+      </Placemark>
+    </Folder>
+    <Folder>
+      <name>Territorio 7</name>
+      <Placemark>
+        <name>Territorio 7</name>
+        <description><![CDATA[Descripción: Sector oeste, límite ferroviario]]></description>
+        <Polygon><outerBoundaryIs><LinearRing><tessellate>1</tessellate>
+        <coordinates>-106.4258,23.2758,0 -106.4257631,23.2758257,0 -106.4256471,23.2762707,0 -106.4257901,23.2767087,0 -106.4259561,23.2771347,0 -106.4268721,23.2789887,0 -106.4270391,23.2788997,0 -106.4271371,23.2788277,0 -106.4271931,23.2788127,0 -106.4272511,23.2788097,0 -106.4272941,23.2788177,0 -106.4273321,23.2788307,0 -106.4274301,23.2789247,0 -106.4274811,23.2789357,0 -106.4276711,23.2790817,0 -106.4284311,23.2803367,0 -106.4287741,23.2812607,0 -106.4291081,23.2822837,0 -106.4252651,23.2833917,0 -106.4251711,23.2834187,0 -106.4236461,23.2837927,0 -106.4237511,23.2844797,0 -106.4237831,23.2845577,0 -106.4239081,23.2854157,0 -106.4239921,23.2856507,0 -106.4240591,23.2861907,0 -106.4242881,23.2873597,0 -106.4241701,23.2873797,0 -106.4242711,23.2879517,0 -106.4242821,23.2880987,0 -106.4243721,23.2885077,0 -106.4242131,23.2885417,0 -106.4230,23.287,0 -106.4220,23.286,0 -106.4210,23.285,0 -106.4200,23.283,0 -106.4210,23.278,0 -106.4220,23.275,0 -106.4230,23.272,0 -106.4240,23.270,0 -106.4250,23.269,0 -106.4258,23.2758,0</coordinates>
+        </LinearRing></outerBoundaryIs></Polygon>
+      </Placemark>
+    </Folder>
+    <Folder>
+      <name>Territorio 8</name>
+      <Placemark>
+        <name>Territorio 8</name>
+        <description><![CDATA[Descripción: Sector sur, límite con vía del tren]]></description>
+        <Polygon><outerBoundaryIs><LinearRing><tessellate>1</tessellate>
+        <coordinates>-106.4162781,23.2955587,0 -106.4166871,23.2960767,0 -106.4168651,23.2964467,0 -106.4169351,23.2968437,0 -106.4166271,23.2998337,0 -106.4186461,23.3017097,0 -106.4214971,23.3045067,0 -106.4244571,23.3020617,0 -106.4291981,23.2978277,0 -106.4254621,23.2940097,0 -106.4253081,23.2909617,0 -106.4252281,23.2886547,0 -106.4248031,23.2887627,0 -106.4242811,23.2888507,0 -106.4242131,23.2885417,0 -106.4243721,23.2885077,0 -106.4242821,23.2880987,0 -106.4242711,23.2879517,0 -106.4241701,23.2873797,0 -106.4242881,23.2873597,0 -106.4240591,23.2861907,0 -106.4239921,23.2856507,0 -106.4239081,23.2854157,0 -106.4237831,23.2845577,0 -106.4237511,23.2844797,0 -106.4236461,23.2837927,0 -106.4220,23.286,0 -106.4210,23.285,0 -106.4200,23.283,0 -106.4180,23.285,0 -106.4160,23.287,0 -106.4150,23.289,0 -106.4155,23.292,0 -106.4160,23.294,0 -106.4162781,23.2955587,0</coordinates>
+        </LinearRing></outerBoundaryIs></Polygon>
+      </Placemark>
+    </Folder>
+    <Folder>
+      <name>Territorio 9</name>
+      <Placemark>
+        <name>Territorio 9</name>
+        <description><![CDATA[Descripción: Sector sureste Prados del Sol]]></description>
+        <Polygon><outerBoundaryIs><LinearRing><tessellate>1</tessellate>
+        <coordinates>-106.4404,23.2816,0 -106.439,23.282,0 -106.437,23.282,0 -106.435,23.282,0 -106.433,23.282,0 -106.431,23.283,0 -106.429,23.282,0 -106.427,23.281,0 -106.425,23.279,0 -106.4248031,23.2887627,0 -106.4252281,23.2886547,0 -106.4253081,23.2909617,0 -106.4254621,23.2940097,0 -106.4291981,23.2978277,0 -106.4244571,23.3020617,0 -106.4214971,23.3045067,0 -106.4300,23.305,0 -106.4350,23.300,0 -106.4400,23.295,0 -106.4420,23.290,0 -106.4415,23.285,0 -106.4410,23.283,0 -106.4404,23.2816,0</coordinates>
+        </LinearRing></outerBoundaryIs></Polygon>
+      </Placemark>
+    </Folder>
+    <Folder>
+      <name>Territorio 10</name>
+      <Placemark>
+        <name>Territorio 10</name>
+        <description><![CDATA[Descripción: Sector noroeste grande, Hospital General y Galerías]]></description>
+        <Polygon><outerBoundaryIs><LinearRing><tessellate>1</tessellate>
+        <coordinates>-106.474282,23.31077,0 -106.473555,23.310106,0 -106.472116,23.308785,0 -106.470891,23.307597,0 -106.470235,23.307114,0 -106.469081,23.306229,0 -106.46717,23.304791,0 -106.464772,23.303081,0 -106.463776,23.302192,0 -106.46195,23.300334,0 -106.460175,23.298359,0 -106.458386,23.296413,0 -106.455893,23.293585,0 -106.454676,23.292013,0 -106.453719,23.290459,0 -106.451998,23.287837,0 -106.451115,23.286875,0 -106.45046,23.286283,0 -106.449698,23.285673,0 -106.448067,23.284485,0 -106.445648,23.282849,0 -106.446084,23.282462,0 -106.446304,23.282092,0 -106.44649,23.281559,0 -106.447067,23.27929,0 -106.447828,23.275983,0 -106.447834,23.275668,0 -106.447778,23.275324,0 -106.447311,23.274484,0 -106.446361,23.275179,0 -106.445881,23.275698,0 -106.44542,23.276323,0 -106.444892,23.277045,0 -106.444746,23.277208,0 -106.444447,23.276963,0 -106.444436,23.276853,0 -106.444541,23.27668,0 -106.444538,23.276417,0 -106.444477,23.276318,0 -106.444361,23.276228,0 -106.443931,23.275003,0 -106.443988,23.27477,0 -106.443928,23.27446,0 -106.443729,23.274132,0 -106.443155,23.274244,0 -106.442379,23.274577,0 -106.441739,23.27481,0 -106.441265,23.275527,0 -106.440889,23.276009,0 -106.44076,23.276414,0 -106.440452,23.276798,0 -106.440144,23.277045,0 -106.439447,23.277396,0 -106.437641,23.27827,0 -106.434158,23.280136,0 -106.43827,23.284644,0 -106.436357,23.285785,0 -106.435182,23.286526,0 -106.434411,23.287046,0 -106.433794,23.28761,0 -106.433516,23.287531,0 -106.4296,23.289831,0 -106.425686,23.290943,0 -106.425315,23.290954,0 -106.425469,23.294002,0 -106.429205,23.29782,0 -106.428685,23.298284,0 -106.421504,23.304499,0 -106.420331,23.305224,0 -106.420777,23.306004,0 -106.42339,23.306818,0 -106.425338,23.308547,0 -106.432748,23.316094,0 -106.443865,23.327604,0 -106.453848,23.338828,0 -106.454375,23.337547,0 -106.456585,23.335252,0 -106.457895,23.33132,0 -106.458041,23.330279,0 -106.457564,23.328221,0 -106.457632,23.327327,0 -106.458241,23.326322,0 -106.462716,23.321884,0 -106.470579,23.314121,0 -106.471978,23.312752,0 -106.474282,23.31077,0</coordinates>
+        </LinearRing></outerBoundaryIs></Polygon>
+      </Placemark>
+    </Folder>
+  </Document>
+</kml>`;
+
+// Start the app
+init();
 </script>
 </body>
 </html>
