@@ -1,814 +1,243 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Territorios — Capitán de Predicación</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
-<style>
-:root {
-  --ink:#1a1209; --paper:#f5f0e8; --warm:#e8dfc8;
-  --gold:#c49a2a; --gold-lt:#e8c96a;
-  --teal:#2a7c6f; --teal-lt:#3dafa0;
-  --red:#b83232; --red-lt:#e05555;
-  --blue:#1e4d8c; --shadow:rgba(26,18,9,0.15);
-}
-*{margin:0;padding:0;box-sizing:border-box;}
-html,body{height:100%;font-family:'Crimson Pro',Georgia,serif;background:var(--paper);color:var(--ink);}
-#app{display:flex;height:100vh;overflow:hidden;}
-#sidebar{width:340px;min-width:300px;max-width:340px;background:var(--ink);color:var(--paper);display:flex;flex-direction:column;overflow:hidden;z-index:10;box-shadow:4px 0 20px var(--shadow);}
-#map-container{flex:1;position:relative;}
-#map{width:100%;height:100%;}
-#sidebar-header{padding:22px 20px 16px;border-bottom:1px solid rgba(245,240,232,0.12);background:linear-gradient(135deg,#1a1209 0%,#2d2215 100%);}
-#sidebar-header h1{font-family:'Crimson Pro',serif;font-weight:600;font-size:1.4rem;letter-spacing:0.02em;color:var(--gold-lt);line-height:1.2;}
-#sidebar-header .subtitle{font-family:'Space Mono',monospace;font-size:0.62rem;color:rgba(245,240,232,0.5);text-transform:uppercase;letter-spacing:0.12em;margin-top:4px;}
-#tabs{display:flex;border-bottom:1px solid rgba(245,240,232,0.1);background:rgba(0,0,0,0.2);}
-.tab-btn{flex:1;padding:10px 4px;background:none;border:none;cursor:pointer;font-family:'Space Mono',monospace;font-size:0.56rem;text-transform:uppercase;letter-spacing:0.06em;color:rgba(245,240,232,0.45);border-bottom:2px solid transparent;transition:all 0.2s;}
-.tab-btn.active{color:var(--gold-lt);border-bottom-color:var(--gold);}
-.tab-btn:hover{color:var(--paper);}
-.panel{display:none;flex:1;overflow-y:auto;padding:16px;flex-direction:column;gap:12px;}
-.panel.active{display:flex;}
-.panel::-webkit-scrollbar{width:4px;}
-.panel::-webkit-scrollbar-thumb{background:rgba(245,240,232,0.2);border-radius:2px;}
-.card{background:rgba(245,240,232,0.06);border:1px solid rgba(245,240,232,0.1);border-radius:8px;padding:14px;}
-.card-title{font-family:'Space Mono',monospace;font-size:0.68rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--gold-lt);margin-bottom:10px;display:flex;align-items:center;gap:8px;}
-.card-title .dot{width:6px;height:6px;border-radius:50%;background:var(--gold);flex-shrink:0;}
-.territory-item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(245,240,232,0.05);border:1px solid rgba(245,240,232,0.08);border-radius:6px;cursor:pointer;margin-bottom:6px;transition:all 0.2s;}
-.territory-item:hover{background:rgba(245,240,232,0.12);border-color:rgba(245,240,232,0.2);}
-.territory-item.sel{background:rgba(196,154,42,0.15);border-color:var(--gold);}
-.territory-item.act{border-color:var(--teal-lt);background:rgba(61,175,160,0.1);}
-.territory-item.done{opacity:0.6;}
-.t-color{width:10px;height:10px;border-radius:2px;flex-shrink:0;}
-.t-name{font-size:0.92rem;font-weight:600;flex:1;}
-.t-status{font-family:'Space Mono',monospace;font-size:0.58rem;padding:2px 8px;border-radius:10px;text-transform:uppercase;}
-.s-pending{background:rgba(245,240,232,0.1);color:rgba(245,240,232,0.5);}
-.s-active{background:rgba(61,175,160,0.25);color:var(--teal-lt);}
-.s-done{background:rgba(30,77,140,0.3);color:#6fa3e0;}
-label{font-family:'Space Mono',monospace;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.1em;color:rgba(245,240,232,0.5);display:block;margin-bottom:4px;}
-input,textarea,select{width:100%;background:rgba(245,240,232,0.06);border:1px solid rgba(245,240,232,0.15);border-radius:6px;padding:9px 12px;color:var(--paper);font-family:'Crimson Pro',serif;font-size:0.95rem;transition:border-color 0.2s;outline:none;}
-input:focus,textarea:focus,select:focus{border-color:var(--gold);}
-select option{background:#1a1209;}
-.btn{width:100%;padding:11px 16px;border:none;border-radius:6px;cursor:pointer;font-family:'Space Mono',monospace;font-size:0.68rem;text-transform:uppercase;letter-spacing:0.08em;transition:all 0.2s;}
-.btn-primary{background:var(--gold);color:var(--ink);}
-.btn-primary:hover{background:var(--gold-lt);}
-.btn-teal{background:var(--teal);color:var(--paper);}
-.btn-teal:hover{background:var(--teal-lt);}
-.btn-red{background:var(--red);color:var(--paper);}
-.btn-red:hover{background:var(--red-lt);}
-.btn-ghost{background:transparent;border:1px solid rgba(245,240,232,0.2);color:var(--paper);}
-.btn-ghost:hover{background:rgba(245,240,232,0.08);}
-.btn-sm{padding:7px 12px;font-size:0.6rem;width:auto;}
-.progress-bar{height:6px;background:rgba(245,240,232,0.1);border-radius:3px;overflow:hidden;}
-.progress-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--teal),var(--teal-lt));transition:width 0.4s ease;}
-.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
-.stat-box{background:rgba(245,240,232,0.06);border:1px solid rgba(245,240,232,0.08);border-radius:6px;padding:10px 12px;text-align:center;}
-.stat-num{font-family:'Space Mono',monospace;font-size:1.4rem;color:var(--gold-lt);font-weight:700;}
-.stat-lbl{font-family:'Space Mono',monospace;font-size:0.55rem;text-transform:uppercase;letter-spacing:0.08em;color:rgba(245,240,232,0.4);margin-top:2px;}
-.h-row{padding:10px 12px;border-left:2px solid rgba(245,240,232,0.15);margin-bottom:6px;}
-.h-row.done{border-left-color:var(--teal);}
-.h-row .h-name{font-size:0.9rem;font-weight:600;}
-.h-row .h-date{font-family:'Space Mono',monospace;font-size:0.6rem;color:rgba(245,240,232,0.4);margin-top:2px;}
-#map-toolbar{position:absolute;top:16px;left:16px;z-index:500;display:flex;flex-direction:column;gap:8px;}
-.map-tool-btn{width:44px;height:44px;border:none;border-radius:8px;cursor:pointer;font-size:1.1rem;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 12px var(--shadow);transition:all 0.2s;background:var(--ink);color:var(--paper);}
-.map-tool-btn:hover{transform:translateY(-1px);}
-#map-info{position:absolute;bottom:24px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:10px 20px;border-radius:20px;font-family:'Space Mono',monospace;font-size:0.7rem;z-index:500;pointer-events:none;box-shadow:0 4px 20px var(--shadow);opacity:0;transition:opacity 0.3s;white-space:nowrap;}
-#map-info.vis{opacity:1;}
-#sb-toggle{position:absolute;top:16px;right:16px;z-index:500;width:44px;height:44px;border:none;border-radius:8px;background:var(--ink);color:var(--paper);cursor:pointer;font-size:1.1rem;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 12px var(--shadow);}
-.route-step{display:flex;align-items:flex-start;gap:10px;padding:8px 10px;background:rgba(245,240,232,0.05);border-radius:6px;margin-bottom:5px;}
-.rs-num{font-family:'Space Mono',monospace;font-size:0.65rem;color:var(--gold);min-width:20px;font-weight:700;margin-top:2px;}
-.rs-txt{font-size:0.85rem;line-height:1.4;}
-.mf{margin-bottom:14px;}
-.btn-row{display:flex;gap:8px;margin-top:4px;}
-.btn-row .btn{flex:1;}
-#notif{position:fixed;top:20px;right:20px;z-index:2000;background:var(--teal);color:var(--paper);padding:12px 20px;border-radius:8px;font-family:'Space Mono',monospace;font-size:0.7rem;transform:translateX(120%);transition:transform 0.3s ease;max-width:280px;}
-#notif.show{transform:translateX(0);}
-#notif.err{background:var(--red);}
-#divide-hint{display:none;font-size:0.8rem;color:rgba(245,240,232,0.4);margin-top:8px;line-height:1.5;}
-#divide-btns{display:none;gap:8px;margin-top:10px;}
-@media(max-width:768px){
-  #app{flex-direction:column;}
-  #sidebar{width:100%;max-width:100%;height:45vh;min-width:unset;}
-}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Soporte en Sitio - Terminal Intelligence Hub</title>
+    <link rel="manifest" href="manifest.json">
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
-<body>
-<div id="app">
-  <div id="sidebar">
-    <div id="sidebar-header">
-      <h1>✦ Territorios Prados</h1>
-      <div class="subtitle">Capitán de Predicación · Mazatlán</div>
-    </div>
-    <div id="tabs">
-      <button class="tab-btn active" id="tab-territorios" onclick="switchTab('territorios')">Territorios</button>
-      <button class="tab-btn" id="tab-predicacion" onclick="switchTab('predicacion')">Predicación</button>
-      <button class="tab-btn" id="tab-historial" onclick="switchTab('historial')">Historial</button>
-      <button class="tab-btn" id="tab-dividir" onclick="switchTab('dividir')">Dividir</button>
-    </div>
+<body class="bg-slate-50 text-gray-800 font-sans min-h-screen pb-12">
 
-    <!-- TERRITORIOS -->
-    <div class="panel active" id="panel-territorios">
-      <div class="stat-grid">
-        <div class="stat-box"><div class="stat-num" id="stat-total">—</div><div class="stat-lbl">Total</div></div>
-        <div class="stat-box"><div class="stat-num" id="stat-done">—</div><div class="stat-lbl">Completados</div></div>
-        <div class="stat-box"><div class="stat-num" id="stat-active">—</div><div class="stat-lbl">Activos</div></div>
-        <div class="stat-box"><div class="stat-num" id="stat-pct">—</div><div class="stat-lbl">Progreso</div></div>
-      </div>
-      <div class="card">
-        <div class="card-title"><span class="dot"></span>Progreso general</div>
-        <div class="progress-bar"><div class="progress-fill" id="global-progress" style="width:0%"></div></div>
-      </div>
-      <div id="territory-list"></div>
-    </div>
+    <header class="bg-blue-800 text-white p-4 shadow-md flex justify-between items-center mb-6">
+        <h1 class="text-xl font-bold tracking-wide">💼 Soporte en Sitio Intel</h1>
+        <button id="btnConfig" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded text-sm transition font-medium">⚙️ Configuración Perfil</button>
+    </header>
 
-    <!-- PREDICACIÓN -->
-    <div class="panel" id="panel-predicacion">
-      <div class="card">
-        <div class="card-title"><span class="dot"></span>Territorio activo</div>
-        <div id="active-info" style="font-size:0.85rem;color:rgba(245,240,232,0.5);">Selecciona un territorio para iniciar</div>
-      </div>
-      <div class="card">
-        <div class="card-title"><span class="dot"></span>Sesión del día</div>
-        <div class="mf"><label>Territorio</label><select id="sel-territory"></select></div>
-        <div class="mf"><label>Predicadores</label><input type="text" id="inp-preachers" placeholder="Ej: Juan, María, Pedro"></div>
-        <div class="btn-row">
-          <button class="btn btn-teal" onclick="startSession()">▶ Iniciar</button>
-          <button class="btn btn-red" onclick="endSession()">■ Finalizar</button>
-        </div>
-      </div>
-      <div class="card" id="route-card" style="display:none;">
-        <div class="card-title"><span class="dot"></span>Ruta sugerida</div>
-        <div id="route-steps"></div>
-      </div>
-      <div class="card">
-        <div class="card-title"><span class="dot"></span>Mi ubicación</div>
-        <button class="btn btn-ghost" onclick="locateMe()">📍 Mostrar mi posición</button>
-        <div id="location-info" style="font-size:0.8rem;color:rgba(245,240,232,0.4);margin-top:8px;"></div>
-      </div>
-    </div>
+    <main class="max-w-7xl mx-auto px-4">
 
-    <!-- HISTORIAL -->
-    <div class="panel" id="panel-historial">
-      <div class="card">
-        <div class="card-title"><span class="dot"></span>Registro histórico</div>
-        <div id="history-list" style="font-size:0.85rem;color:rgba(245,240,232,0.4);">Cargando...</div>
-      </div>
-    </div>
+        <section id="secConfig" class="hidden bg-white p-6 rounded-lg shadow-md border border-gray-200 mb-6">
+            <h2 class="text-lg font-bold mb-4 text-blue-800 border-b pb-2">Configuración del Ingeniero de Campo Permanente</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-semibold mb-1 text-gray-600">Nombre del Ingeniero</label>
+                    <input type="text" id="cfgNombre" class="w-full border p-2 rounded focus:ring focus:ring-blue-200 outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold mb-1 text-gray-600">Firma Guardada (Base64/Imagen)</label>
+                    <canvas id="canvasConfigFirma" class="border border-dashed border-gray-400 bg-gray-50 w-full h-24 rounded cursor-crosshair"></canvas>
+                    <div class="flex gap-2 mt-1">
+                        <button id="clearCfgFirma" class="text-xs text-red-500 underline">Limpiar Trazo</button>
+                        <span class="text-xs text-gray-400">O carga archivo:</span>
+                        <input type="file" id="fileCfgFirma" accept="image/*" class="text-xs w-40">
+                    </div>
+                </div>
+            </div>
+            <div class="mt-4 flex justify-end gap-2">
+                <button id="btnGuardarConfig" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm">Guardar Perfil</button>
+            </div>
+        </section>
 
-    <!-- DIVIDIR -->
-    <div class="panel" id="panel-dividir">
-      <div class="card">
-        <div class="card-title"><span class="dot"></span>Dividir territorio</div>
-        <p style="font-size:0.82rem;color:rgba(245,240,232,0.6);line-height:1.6;margin-bottom:12px;">
-          1. Selecciona el territorio<br>
-          2. Activa el modo división<br>
-          3. Haz clic en el mapa para trazar la línea de corte<br>
-          4. Presiona "Cortar"
-        </p>
-        <div class="mf"><label>Territorio a dividir</label><select id="sel-divide"></select></div>
-        <button class="btn btn-primary" id="btn-divide-mode" onclick="activateDivideMode()">✂ Activar modo división</button>
-        <div id="divide-hint">Haz clic en 2+ puntos sobre el mapa para trazar la línea. La línea debe atravesar completamente el polígono.</div>
-        <div id="divide-btns" style="display:none;">
-          <button class="btn btn-teal btn-sm" onclick="executeDivide()">✦ Cortar</button>
-          <button class="btn btn-ghost btn-sm" onclick="cancelDivide()">✕ Cancelar</button>
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-title"><span class="dot"></span>Importar KML</div>
-        <p style="font-size:0.82rem;color:rgba(245,240,232,0.5);margin-bottom:10px;">Carga territorios adicionales desde un archivo KML.</p>
-        <input type="file" id="kml-file" accept=".kml" style="font-size:0.8rem;padding:6px;">
-        <button class="btn btn-ghost" style="margin-top:8px;" onclick="importKMLFile()">↑ Importar</button>
-      </div>
-      <div class="card">
-        <div class="card-title"><span class="dot"></span>Reiniciar territorio</div>
-        <div class="mf"><label>Territorio</label><select id="sel-reset"></select></div>
-        <button class="btn btn-ghost" onclick="resetTerritory()">↺ Marcar como pendiente</button>
-      </div>
-    </div>
-  </div>
+        <section id="secListado">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-gray-700">Historial de Visitas Realizadas</h2>
+                <button id="btnNuevaVisita" class="bg-blue-700 hover:bg-blue-800 text-white px-5 py-2 rounded shadow font-semibold transition">+ Nueva Visita</button>
+            </div>
+            <div class="bg-white rounded-lg shadow overflow-x-auto border border-gray-200">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-gray-100 border-b border-gray-200 text-gray-600 text-xs uppercase font-bold tracking-wider">
+                            <th class="p-3">Ticket</th>
+                            <th class="p-3">Fecha Atn.</th>
+                            <th class="p-3">Cliente / Sitio</th>
+                            <th class="p-3">Incidencia / Terminal</th>
+                            <th class="p-3 text-center">Documentos (PDF)</th>
+                            <th class="p-3 text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaVisitas" class="divide-y divide-gray-100 text-sm">
+                        </tbody>
+                </table>
+            </div>
+        </section>
 
-  <div id="map-container">
-    <div id="map-toolbar">
-      <button class="map-tool-btn" title="Mi ubicación" onclick="locateMe()">📍</button>
-      <button class="map-tool-btn" title="Ver todos" onclick="showAllTerritories()">🗺</button>
-    </div>
-    <button id="sb-toggle" onclick="toggleSidebar()" title="Panel">☰</button>
-    <div id="map"></div>
-    <div id="map-info"></div>
-  </div>
-</div>
-<div id="notif"></div>
+        <section id="secDetalleVisita" class="hidden">
+            <div class="flex justify-between items-center mb-4">
+                <button id="btnVolver" class="text-blue-700 hover:underline flex items-center gap-1 font-medium">&larr; Volver al Listado</button>
+                <span class="text-xs bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full font-semibold">🔄 Auto-guardado Activo</span>
+            </div>
 
-<script>
-(function() {
-'use strict';
+            <div class="flex flex-wrap border-b border-gray-200 gap-1 mb-4" id="tabsNavegacion">
+                <button data-tab="tabGeneral" class="tab-btn py-2 px-4 font-semibold text-sm border-b-2 border-blue-700 text-blue-700">General</button>
+                <button data-tab="tabCliente" class="tab-btn py-2 px-4 font-semibold text-sm border-b-2 border-transparent text-gray-500 hover:text-blue-700">Cliente</button>
+                <button data-tab="tabSolucion" class="tab-btn py-2 px-4 font-semibold text-sm border-b-2 border-transparent text-gray-500 hover:text-blue-700">Solución</button>
+                <button data-tab="tabEntregas" class="tab-btn py-2 px-4 font-semibold text-sm border-b-2 border-transparent text-gray-500 hover:text-blue-700">Entregas</button>
+                <button data-tab="tabEvidencias" class="tab-btn py-2 px-4 font-semibold text-sm border-b-2 border-transparent text-gray-500 hover:text-blue-700">Evidencias</button>
+                <button data-tab="tabFirmas" class="tab-btn py-2 px-4 font-semibold text-sm border-b-2 border-transparent text-gray-500 hover:text-blue-700">Firmas</button>
+            </div>
 
-// ── SUPABASE ──────────────────────────────────────────────────────────────
-const SB_URL = 'https://pbcyeeqkdudlnqghgwmb.supabase.co';
-const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBiY3llZXFrZHVkbG5xZ2hnd21iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAxMzgwNjksImV4cCI6MjA5NTcxNDA2OX0.HUWjTRPmRAcgcGG-YiCnqVRQlVQlTVX_Q_O6OaCTLjk';
-const db = window.supabase.createClient(SB_URL, SB_KEY);
+            <form id="formVisita" class="bg-white p-6 rounded-lg shadow-md border border-gray-200">
+                <input type="hidden" id="v_id">
 
-// ── STATE ─────────────────────────────────────────────────────────────────
-let leafMap, territories = [], historyData = [];
-let selectedTerr = null, activeSession = null;
-let divideMode = false, dividePoints = [], dividePoly = null;
-let userMarker = null, routeLayer = null;
-let sidebarOpen = true;
-let infoTimer = null;
+                <div id="tabGeneral" class="tab-content grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1">Número de Ticket *</label>
+                        <input type="text" id="v_ticket" required class="w-full border p-2 rounded focus:border-blue-500 outline-none auto-save">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1">Ingeniero de Campo</label>
+                        <input type="text" id="v_ingeniero" class="w-full border p-2 rounded bg-gray-50 auto-save">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1">Fecha de Creación del Ticket</label>
+                        <input type="date" id="v_fecha_creacion" class="w-full border p-2 rounded auto-save">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1">Fecha de Atención</label>
+                        <input type="date" id="v_fecha_atencion" class="w-full border p-2 rounded auto-save">
+                    </div>
+                </div>
 
-const COLORS = ['#2a7c6f','#c49a2a','#b83232','#1e4d8c','#7c5a2a','#2a4d7c','#7c2a6f','#4d7c2a','#7c7c2a','#2a7c7c','#8c4a1e','#1e8c6a'];
+                <div id="tabCliente" class="tab-content hidden grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1">Cliente / Razón Social</label>
+                        <input type="text" id="v_cliente" class="w-full border p-2 rounded auto-save">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1">Ubicación del Sitio</label>
+                        <input type="text" id="v_ubicacion" class="w-full border p-2 rounded auto-save">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1">Contacto en Sitio</label>
+                        <input type="text" id="v_contacto" class="w-full border p-2 rounded auto-save">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1">Teléfono</label>
+                        <input type="tel" id="v_telefono" class="w-full border p-2 rounded auto-save">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1">Correo Electrónico</label>
+                        <input type="email" id="v_correo" class="w-full border p-2 rounded auto-save">
+                    </div>
+                </div>
 
-// ── KML DATA (all 10 territories from uploaded file) ──────────────────────
-const KML_SOURCE = `<kml><Document>
-<Folder><name>Territorio 1</name><Placemark><name>Territorio 1</name>
-<description>Entre Ártico y desierto, entre Av. Prados del Sol y la vía del tren</description>
-<Polygon><outerBoundaryIs><LinearRing><coordinates>
--106.43044,23.271928,0 -106.431198,23.271263,0 -106.431508,23.270994,0 -106.431657,23.27088,0
--106.431947,23.270652,0 -106.432071,23.27056,0 -106.432244,23.270423,0 -106.4308,23.26901,0
--106.429779,23.267991,0 -106.429448,23.268265,0 -106.429087,23.268584,0 -106.428017,23.269521,0
--106.428403,23.269912,0 -106.428866,23.270365,0 -106.429097,23.270598,0 -106.429325,23.270823,0
--106.429603,23.271098,0 -106.429882,23.271375,0 -106.43044,23.271928,0
-</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark></Folder>
-<Folder><name>Territorio 2</name><Placemark><name>Territorio 2</name>
-<description>Entre Blvd. de la Pradera y desierto, entre Av. Prados del Sol y Av. Maple</description>
-<Polygon><outerBoundaryIs><LinearRing><coordinates>
--106.430239,23.274172,0 -106.430289,23.274164,0 -106.430336,23.274134,0 -106.430383,23.274059,0
--106.430413,23.273988,0 -106.429465,23.273137,0 -106.429266,23.272957,0 -106.429463,23.272777,0
--106.429646,23.272613,0 -106.430022,23.272288,0 -106.43044,23.271928,0 -106.429126,23.270626,0
--106.428017,23.269521,0 -106.427692,23.269791,0 -106.427416,23.270017,0 -106.427364,23.270057,0
--106.427334,23.270083,0 -106.42727,23.270141,0 -106.427217,23.270192,0 -106.42714,23.270261,0
--106.426941,23.270441,0 -106.426785,23.270577,0 -106.426734,23.270622,0 -106.42661,23.27073,0
--106.426562,23.270767,0 -106.426493,23.270828,0 -106.426995,23.27128,0 -106.427216,23.271476,0
--106.427443,23.271673,0 -106.427887,23.272074,0 -106.429067,23.273117,0 -106.430239,23.274172,0
-</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark></Folder>
-<Folder><name>Territorio 3</name><Placemark><name>Territorio 3</name>
-<description>Norte de Blvd. de la Pradera, entre Av. Maple y Av. Ártico</description>
-<Polygon><outerBoundaryIs><LinearRing><coordinates>
--106.427892,23.276404,0 -106.428027,23.276286,0 -106.428201,23.276126,0 -106.428436,23.275914,0
--106.429047,23.275361,0 -106.429453,23.274994,0 -106.430239,23.274172,0 -106.429067,23.273117,0
--106.427887,23.272074,0 -106.427443,23.271673,0 -106.427216,23.271476,0 -106.426995,23.27128,0
--106.426493,23.270828,0 -106.425821,23.271392,0 -106.425383,23.271761,0 -106.424888,23.272189,0
--106.424444,23.272573,0 -106.424007,23.272957,0 -106.425003,23.273871,0 -106.425834,23.274601,0
--106.426656,23.275322,0 -106.427892,23.276404,0
-</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark></Folder>
-<Folder><name>Territorio 4</name><Placemark><name>Territorio 4</name>
-<description>Sector central Prados del Sol, Av. Ártico</description>
-<Polygon><outerBoundaryIs><LinearRing><coordinates>
--106.424444,23.272573,0 -106.424888,23.272189,0 -106.425383,23.271761,0 -106.425821,23.271392,0
--106.426493,23.270828,0 -106.426562,23.270767,0 -106.42661,23.27073,0 -106.426734,23.270622,0
--106.426785,23.270577,0 -106.426941,23.270441,0 -106.42714,23.270261,0 -106.427217,23.270192,0
--106.427334,23.270083,0 -106.427364,23.270057,0 -106.427416,23.270017,0 -106.426,23.268,0
--106.424,23.269,0 -106.422,23.270,0 -106.423,23.272,0 -106.424444,23.272573,0
-</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark></Folder>
-<Folder><name>Territorio 5</name><Placemark><name>Territorio 5</name>
-<description>Sector este Prados del Sol, Blvd. Pradera norte</description>
-<Polygon><outerBoundaryIs><LinearRing><coordinates>
--106.431,23.278,0 -106.432,23.277,0 -106.433,23.276,0 -106.433,23.274,0 -106.432,23.273,0
--106.430413,23.273988,0 -106.430383,23.274059,0 -106.430336,23.274134,0 -106.430289,23.274164,0
--106.430239,23.274172,0 -106.429453,23.274994,0 -106.429047,23.275361,0 -106.428436,23.275914,0
--106.428201,23.276126,0 -106.428027,23.276286,0 -106.427892,23.276404,0 -106.429,23.277,0
--106.430,23.278,0 -106.431,23.278,0
-</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark></Folder>
-<Folder><name>Territorio 6</name><Placemark><name>Territorio 6</name>
-<description>Sector norte Prados del Sol, cerca de Av. Maple</description>
-<Polygon><outerBoundaryIs><LinearRing><coordinates>
--106.4404,23.2816,0 -106.4395,23.2809,0 -106.4386,23.28,0 -106.4373,23.2791,0 -106.436,23.2783,0
--106.4346,23.2776,0 -106.4333,23.2769,0 -106.432,23.2762,0 -106.431,23.278,0 -106.430,23.278,0
--106.429,23.277,0 -106.427892,23.276404,0 -106.426656,23.275322,0 -106.425834,23.274601,0
--106.425003,23.273871,0 -106.424007,23.272957,0 -106.423,23.274,0 -106.422,23.275,0
--106.423,23.277,0 -106.425,23.279,0 -106.427,23.281,0 -106.429,23.282,0 -106.431,23.283,0
--106.433,23.282,0 -106.435,23.282,0 -106.437,23.282,0 -106.439,23.282,0 -106.4404,23.2816,0
-</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark></Folder>
-<Folder><name>Territorio 7</name><Placemark><name>Territorio 7</name>
-<description>Sector oeste, límite ferroviario</description>
-<Polygon><outerBoundaryIs><LinearRing><coordinates>
--106.4258,23.2758,0 -106.4256471,23.2762707,0 -106.4257901,23.2767087,0 -106.4259561,23.2771347,0
--106.4268721,23.2789887,0 -106.4270391,23.2788997,0 -106.4271371,23.2788277,0 -106.4271931,23.2788127,0
--106.4272511,23.2788097,0 -106.4272941,23.2788177,0 -106.4273321,23.2788307,0 -106.4274301,23.2789247,0
--106.4274811,23.2789357,0 -106.4276711,23.2790817,0 -106.4284311,23.2803367,0 -106.4287741,23.2812607,0
--106.4291081,23.2822837,0 -106.4252651,23.2833917,0 -106.4251711,23.2834187,0 -106.4236461,23.2837927,0
--106.4237511,23.2844797,0 -106.4237831,23.2845577,0 -106.4239081,23.2854157,0 -106.4239921,23.2856507,0
--106.4240591,23.2861907,0 -106.4242881,23.2873597,0 -106.4241701,23.2873797,0 -106.4242711,23.2879517,0
--106.4242821,23.2880987,0 -106.4243721,23.2885077,0 -106.4242131,23.2885417,0 -106.4230,23.287,0
--106.4220,23.286,0 -106.4210,23.285,0 -106.4200,23.283,0 -106.4210,23.278,0 -106.4220,23.275,0
--106.4230,23.272,0 -106.4240,23.270,0 -106.4250,23.269,0 -106.4258,23.2758,0
-</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark></Folder>
-<Folder><name>Territorio 8</name><Placemark><name>Territorio 8</name>
-<description>Sector sur, límite con vía del tren</description>
-<Polygon><outerBoundaryIs><LinearRing><coordinates>
--106.4162781,23.2955587,0 -106.4166871,23.2960767,0 -106.4168651,23.2964467,0 -106.4169351,23.2968437,0
--106.4166271,23.2998337,0 -106.4186461,23.3017097,0 -106.4214971,23.3045067,0 -106.4244571,23.3020617,0
--106.4291981,23.2978277,0 -106.4254621,23.2940097,0 -106.4253081,23.2909617,0 -106.4252281,23.2886547,0
--106.4248031,23.2887627,0 -106.4242811,23.2888507,0 -106.4242131,23.2885417,0 -106.4243721,23.2885077,0
--106.4242821,23.2880987,0 -106.4242711,23.2879517,0 -106.4241701,23.2873797,0 -106.4242881,23.2873597,0
--106.4240591,23.2861907,0 -106.4239921,23.2856507,0 -106.4239081,23.2854157,0 -106.4237831,23.2845577,0
--106.4237511,23.2844797,0 -106.4236461,23.2837927,0 -106.4220,23.286,0 -106.4210,23.285,0
--106.4200,23.283,0 -106.4180,23.285,0 -106.4160,23.287,0 -106.4150,23.289,0 -106.4155,23.292,0
--106.4160,23.294,0 -106.4162781,23.2955587,0
-</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark></Folder>
-<Folder><name>Territorio 9</name><Placemark><name>Territorio 9</name>
-<description>Sector sureste Prados del Sol</description>
-<Polygon><outerBoundaryIs><LinearRing><coordinates>
--106.4404,23.2816,0 -106.439,23.282,0 -106.437,23.282,0 -106.435,23.282,0 -106.433,23.282,0
--106.431,23.283,0 -106.429,23.282,0 -106.427,23.281,0 -106.425,23.279,0 -106.4248031,23.2887627,0
--106.4252281,23.2886547,0 -106.4253081,23.2909617,0 -106.4254621,23.2940097,0 -106.4291981,23.2978277,0
--106.4244571,23.3020617,0 -106.4214971,23.3045067,0 -106.4300,23.305,0 -106.4350,23.300,0
--106.4400,23.295,0 -106.4420,23.290,0 -106.4415,23.285,0 -106.4410,23.283,0 -106.4404,23.2816,0
-</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark></Folder>
-<Folder><name>Territorio 10</name><Placemark><name>Territorio 10</name>
-<description>Sector noroeste grande — Hospital General y Galerías</description>
-<Polygon><outerBoundaryIs><LinearRing><coordinates>
--106.474282,23.31077,0 -106.473555,23.310106,0 -106.472116,23.308785,0 -106.470891,23.307597,0
--106.470235,23.307114,0 -106.469081,23.306229,0 -106.46717,23.304791,0 -106.464772,23.303081,0
--106.463776,23.302192,0 -106.46195,23.300334,0 -106.460175,23.298359,0 -106.458386,23.296413,0
--106.455893,23.293585,0 -106.454676,23.292013,0 -106.453719,23.290459,0 -106.451998,23.287837,0
--106.451115,23.286875,0 -106.45046,23.286283,0 -106.449698,23.285673,0 -106.448067,23.284485,0
--106.445648,23.282849,0 -106.446084,23.282462,0 -106.446304,23.282092,0 -106.44649,23.281559,0
--106.447067,23.27929,0 -106.447828,23.275983,0 -106.447834,23.275668,0 -106.447778,23.275324,0
--106.447311,23.274484,0 -106.446361,23.275179,0 -106.445881,23.275698,0 -106.44542,23.276323,0
--106.444892,23.277045,0 -106.444746,23.277208,0 -106.444447,23.276963,0 -106.444436,23.276853,0
--106.444541,23.27668,0 -106.444538,23.276417,0 -106.444477,23.276318,0 -106.444361,23.276228,0
--106.443931,23.275003,0 -106.443988,23.27477,0 -106.443928,23.27446,0 -106.443729,23.274132,0
--106.443155,23.274244,0 -106.442379,23.274577,0 -106.441739,23.27481,0 -106.441265,23.275527,0
--106.440889,23.276009,0 -106.44076,23.276414,0 -106.440452,23.276798,0 -106.440144,23.277045,0
--106.439447,23.277396,0 -106.437641,23.27827,0 -106.434158,23.280136,0 -106.43827,23.284644,0
--106.436357,23.285785,0 -106.435182,23.286526,0 -106.434411,23.287046,0 -106.433794,23.28761,0
--106.433516,23.287531,0 -106.4296,23.289831,0 -106.425686,23.290943,0 -106.425315,23.290954,0
--106.425469,23.294002,0 -106.429205,23.29782,0 -106.428685,23.298284,0 -106.421504,23.304499,0
--106.420331,23.305224,0 -106.420777,23.306004,0 -106.42339,23.306818,0 -106.425338,23.308547,0
--106.432748,23.316094,0 -106.443865,23.327604,0 -106.453848,23.338828,0 -106.454375,23.337547,0
--106.456585,23.335252,0 -106.457895,23.33132,0 -106.458041,23.330279,0 -106.457564,23.328221,0
--106.457632,23.327327,0 -106.458241,23.326322,0 -106.462716,23.321884,0 -106.470579,23.314121,0
--106.471978,23.312752,0 -106.474282,23.31077,0
-</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark></Folder>
-</Document></kml>`;
+                <div id="tabSolucion" class="tab-content hidden grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1">Tipo de Servicio</label>
+                        <input type="text" id="v_tipo_servicio" placeholder="Ej. Preventivo, Correctivo" class="w-full border p-2 rounded auto-save">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1">Nombre de la Terminal</label>
+                        <input type="text" id="v_nombre_terminal" class="w-full border p-2 rounded auto-save">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1">Incidencia Reportada</label>
+                        <textarea id="v_incidencia" rows="2" class="w-full border p-2 rounded auto-save"></textarea>
+                    </div>
+                    <div class="md:col-span-2 flex items-center gap-2 py-2">
+                        <input type="checkbox" id="v_solicita_terminal" class="w-4 h-4 text-blue-600 auto-save">
+                        <label for="v_solicita_terminal" class="text-sm font-semibold text-gray-700">¿Solicita cambio / retiro de terminal?</label>
+                    </div>
 
-// ── PARSE KML ─────────────────────────────────────────────────────────────
-function parseKML(txt) {
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(txt, 'text/xml');
-  const out = [];
-  doc.querySelectorAll('Folder').forEach(folder => {
-    folder.querySelectorAll('Placemark').forEach(pm => {
-      const poly = pm.querySelector('Polygon');
-      if (!poly) return;
-      const name = pm.querySelector('name')?.textContent?.trim() || 'Territorio';
-      const desc = pm.querySelector('description')?.textContent?.replace(/<[^>]+>/g,'').replace('Descripción:','').split('\n')[0].trim() || '';
-      const raw = poly.querySelector('coordinates')?.textContent?.trim() || '';
-      const coords = raw.split(/\s+/).filter(Boolean).map(c => {
-        const [lng, lat] = c.split(',').map(Number);
-        return [lat, lng];
-      }).filter(c => !isNaN(c[0]));
-      if (coords.length >= 3) out.push({ name, description: desc, coordinates: coords });
-    });
-  });
-  return out;
-}
+                    <div class="border p-3 rounded bg-red-50">
+                        <h4 class="text-xs font-bold uppercase text-red-800 mb-2">Equipo Retirado</h4>
+                        <label class="block text-xs font-medium text-gray-600">Serial Number</label>
+                        <input type="text" id="v_retirado_sn" class="w-full border p-1 rounded mb-2 bg-white auto-save">
+                        <label class="block text-xs font-medium text-gray-600">MAC Address</label>
+                        <input type="text" id="v_retirado_mac" class="w-full border p-1 rounded bg-white auto-save">
+                    </div>
+                    <div class="border p-3 rounded bg-green-50">
+                        <h4 class="text-xs font-bold uppercase text-green-800 mb-2">Equipo Instalado</h4>
+                        <label class="block text-xs font-medium text-gray-600">Serial Number</label>
+                        <input type="text" id="v_instalado_sn" class="w-full border p-1 rounded mb-2 bg-white auto-save">
+                        <label class="block text-xs font-medium text-gray-600">MAC Address</label>
+                        <input type="text" id="v_instalado_mac" class="w-full border p-1 rounded bg-white auto-save">
+                    </div>
 
-// ── MAP INIT ──────────────────────────────────────────────────────────────
-function initMap() {
-  leafMap = L.map('map', { zoomControl: false });
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-    attribution: '©OpenStreetMap ©Carto', maxZoom: 19
-  }).addTo(leafMap);
-  L.control.zoom({ position: 'bottomright' }).addTo(leafMap);
-}
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1">Solución Aplicada de la Incidencia</label>
+                        <textarea id="v_solucion_detalle" rows="3" class="w-full border p-2 rounded auto-save"></textarea>
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1">Comentarios Adicionales</label>
+                        <textarea id="v_comentarios" rows="2" class="w-full border p-2 rounded auto-save"></textarea>
+                    </div>
+                </div>
 
-// ── POLYGON LAYERS ────────────────────────────────────────────────────────
-const polyLayers = {};
+                <div id="tabEntregas" class="tab-content hidden">
+                    <div class="flex justify-between items-center mb-3">
+                        <h3 class="text-sm font-bold uppercase text-gray-600">Artículos Entregados al Cliente</h3>
+                        <button type="button" id="btnAgregarArticulo" class="bg-gray-800 hover:bg-gray-900 text-white text-xs px-3 py-1.5 rounded">+ Añadir Fila</button>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-xs">
+                            <thead>
+                                <tr class="bg-gray-100 text-left border-b">
+                                    <th class="p-2 w-16">Cant.</th>
+                                    <th class="p-2">Marca</th>
+                                    <th class="p-2">Modelo</th>
+                                    <th class="p-2">S/N</th>
+                                    <th class="p-2">Observaciones</th>
+                                    <th class="p-2 text-center w-12"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbodyArticulos">
+                                </tbody>
+                        </table>
+                    </div>
+                </div>
 
-function renderMapTerritories() {
-  Object.values(polyLayers).forEach(l => {
-    if (l.poly) leafMap.removeLayer(l.poly);
-    if (l.label) leafMap.removeLayer(l.label);
-  });
-  for (const k in polyLayers) delete polyLayers[k];
+                <div id="tabEvidencias" class="tab-content hidden space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="border p-3 rounded bg-gray-50">
+                            <label class="block text-xs font-bold uppercase text-gray-700 mb-1">1. Estado Inicial</label>
+                            <input type="file" multiple accept="image/*" data-tipo="inicial" class="input-foto text-xs block w-full mb-2">
+                            <div id="galeria_inicial" class="flex flex-wrap gap-2 mt-2"></div>
+                        </div>
+                        <div class="border p-3 rounded bg-gray-50">
+                            <label class="block text-xs font-bold uppercase text-gray-700 mb-1">2. Mediciones</label>
+                            <input type="file" multiple accept="image/*" data-tipo="mediciones" class="input-foto text-xs block w-full mb-2">
+                            <div id="galeria_mediciones" class="flex flex-wrap gap-2 mt-2"></div>
+                        </div>
+                        <div class="border p-3 rounded bg-gray-50">
+                            <label class="block text-xs font-bold uppercase text-gray-700 mb-1">3. Instalación</label>
+                            <input type="file" multiple accept="image/*" data-tipo="instalacion" class="input-foto text-xs block w-full mb-2">
+                            <div id="galeria_instalacion" class="flex flex-wrap gap-2 mt-2"></div>
+                        </div>
+                        <div class="border p-3 rounded bg-gray-50">
+                            <label class="block text-xs font-bold uppercase text-gray-700 mb-1">4. Fotos Adicionales</label>
+                            <input type="file" multiple accept="image/*" data-tipo="adicionales" class="input-foto text-xs block w-full mb-2">
+                            <div id="galeria_adicionales" class="flex flex-wrap gap-2 mt-2"></div>
+                        </div>
+                    </div>
+                </div>
 
-  if (!territories.length) return;
-  const bounds = L.latLngBounds();
+                <div id="tabFirmas" class="tab-content hidden grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="border p-4 rounded bg-slate-50 flex flex-col items-center">
+                        <h4 class="text-xs font-bold uppercase text-gray-600 mb-2">Firma del Ingeniero de Campo</h4>
+                        <canvas id="canvasFirmaIng" class="border bg-white w-full h-32 rounded shadow-inner cursor-crosshair"></canvas>
+                        <div class="w-full flex justify-between mt-2">
+                            <button type="button" data-canvas="canvasFirmaIng" class="clear-canvas text-xs text-red-500 underline">Limpiar</button>
+                            <input type="file" data-canvas="canvasFirmaIng" accept="image/*" class="file-firma text-xs w-40">
+                        </div>
+                    </div>
+                    <div class="border p-4 rounded bg-slate-50 flex flex-col items-center">
+                        <h4 class="text-xs font-bold uppercase text-gray-600 mb-2">Firma de Conformidad del Cliente</h4>
+                        <canvas id="canvasFirmaCli" class="border bg-white w-full h-32 rounded shadow-inner cursor-crosshair"></canvas>
+                        <div class="w-full flex justify-between mt-2">
+                            <button type="button" data-canvas="canvasFirmaCli" class="clear-canvas text-xs text-red-500 underline">Limpiar</button>
+                            <input type="file" data-canvas="canvasFirmaCli" accept="image/*" class="file-firma text-xs w-40">
+                        </div>
+                    </div>
+                </div>
 
-  territories.forEach(t => {
-    if (!t.coordinates || t.coordinates.length < 3) return;
-    const color = t.color || '#2a7c6f';
-    const fillOpacity = t.status === 'done' ? 0.18 : 0.32;
-    const weight = t.status === 'done' ? 1.5 : 2.5;
-    const dash = t.status === 'done' ? '4,4' : null;
+            </form>
+        </section>
+    </main>
 
-    const poly = L.polygon(t.coordinates, { color, fillColor: color, fillOpacity, weight, dashArray: dash });
-    poly.on('click', () => selectTerritory(t.id));
-    poly.bindTooltip('<strong>' + t.name + '</strong>' + (t.description ? '<br><small>' + t.description + '</small>' : ''), { sticky: true });
-    poly.addTo(leafMap);
-    t.coordinates.forEach(c => bounds.extend(c));
-
-    const center = poly.getBounds().getCenter();
-    const icon = L.divIcon({
-      className: '',
-      html: '<div style="font-family:Space Mono,monospace;font-size:0.6rem;font-weight:700;color:' + color + ';text-shadow:0 0 4px #fff,0 0 8px #fff;white-space:nowrap;pointer-events:none;">' + t.name + '</div>',
-      iconAnchor: [0, 0]
-    });
-    const label = L.marker(center, { icon, interactive: false }).addTo(leafMap);
-    polyLayers[t.id] = { poly, label };
-  });
-
-  if (bounds.isValid()) leafMap.fitBounds(bounds, { padding: [40, 40] });
-}
-
-function highlightTerritory(id) {
-  Object.entries(polyLayers).forEach(([tid, layers]) => {
-    const t = territories.find(x => x.id === tid);
-    if (!t) return;
-    const color = t.color || '#2a7c6f';
-    if (tid === id) {
-      layers.poly.setStyle({ weight: 4, color: '#e8c96a', fillOpacity: 0.5 });
-      layers.poly.bringToFront();
-    } else {
-      layers.poly.setStyle({ weight: t.status === 'done' ? 1.5 : 2.5, color, fillOpacity: t.status === 'done' ? 0.18 : 0.32 });
-    }
-  });
-}
-
-// ── TERRITORY SELECTION ───────────────────────────────────────────────────
-function selectTerritory(id) {
-  selectedTerr = territories.find(t => t.id === id);
-  if (!selectedTerr) return;
-  highlightTerritory(id);
-  if (polyLayers[id]) leafMap.fitBounds(polyLayers[id].poly.getBounds(), { padding: [30, 30] });
-  showInfo('Territorio: ' + selectedTerr.name);
-  document.getElementById('sel-territory').value = id;
-  updateActiveInfo();
-  switchTab('predicacion');
-}
-
-// ── DATA LOADING ──────────────────────────────────────────────────────────
-async function loadTerritories() {
-  const { data, error } = await db.from('territories').select('*').order('name');
-  if (error) { notify('Error cargando territorios', true); console.error(error); return; }
-  territories = data || [];
-  if (territories.length === 0) {
-    await seedFromKML();
-  } else {
-    renderMapTerritories();
-    renderTerritoryList();
-    populateSelects();
-    updateStats();
-  }
-}
-
-async function seedFromKML() {
-  const parsed = parseKML(KML_SOURCE);
-  if (!parsed.length) { notify('No se encontraron territorios en KML', true); return; }
-  notify('Cargando ' + parsed.length + ' territorios...');
-  for (let i = 0; i < parsed.length; i++) {
-    const t = parsed[i];
-    await db.from('territories').insert({
-      name: t.name, description: t.description,
-      color: COLORS[i % COLORS.length],
-      coordinates: t.coordinates, status: 'pending'
-    });
-  }
-  await loadTerritories();
-  notify(parsed.length + ' territorios cargados ✓');
-}
-
-async function loadHistory() {
-  const { data } = await db.from('territory_history').select('*').order('event_at', { ascending: false }).limit(60);
-  historyData = data || [];
-  renderHistory();
-}
-
-async function loadActiveSession() {
-  const { data } = await db.from('sessions').select('*').is('ended_at', null).order('started_at', { ascending: false }).limit(1);
-  activeSession = data && data[0] ? data[0] : null;
-  updateActiveInfo();
-  if (activeSession) generateRoute(activeSession.territory_id);
-}
-
-// ── UI RENDERING ──────────────────────────────────────────────────────────
-function renderTerritoryList() {
-  const el = document.getElementById('territory-list');
-  if (!territories.length) {
-    el.innerHTML = '<div style="color:rgba(245,240,232,0.4);font-size:0.85rem;text-align:center;padding:20px;">Sin territorios</div>';
-    return;
-  }
-  el.innerHTML = territories.map(t => {
-    const cls = t.id === (selectedTerr && selectedTerr.id) ? ' sel' : t.status === 'active' ? ' act' : t.status === 'done' ? ' done' : '';
-    const sCls = t.status === 'active' ? 's-active' : t.status === 'done' ? 's-done' : 's-pending';
-    const sLbl = t.status === 'active' ? '● Activo' : t.status === 'done' ? '✓ Listo' : 'Pendiente';
-    return '<div class="territory-item' + cls + '" id="ti-' + t.id + '" onclick="selectTerritory(\'' + t.id + '\')">' +
-      '<div class="t-color" style="background:' + (t.color || '#666') + '"></div>' +
-      '<div class="t-name">' + t.name + '</div>' +
-      '<div class="t-status ' + sCls + '">' + sLbl + '</div></div>';
-  }).join('');
-}
-
-function populateSelects() {
-  const opts = territories.map(t => '<option value="' + t.id + '">' + t.name + '</option>').join('');
-  ['sel-territory', 'sel-divide', 'sel-reset'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.innerHTML = opts;
-  });
-}
-
-function updateStats() {
-  const total = territories.length;
-  const done = territories.filter(t => t.status === 'done').length;
-  const active = territories.filter(t => t.status === 'active').length;
-  const pct = total ? Math.round(done / total * 100) : 0;
-  document.getElementById('stat-total').textContent = total || '—';
-  document.getElementById('stat-done').textContent = done || '—';
-  document.getElementById('stat-active').textContent = active || '—';
-  document.getElementById('stat-pct').textContent = total ? pct + '%' : '—';
-  document.getElementById('global-progress').style.width = pct + '%';
-}
-
-function updateActiveInfo() {
-  const el = document.getElementById('active-info');
-  if (!activeSession) {
-    el.innerHTML = '<span style="color:rgba(245,240,232,0.4);">Sin sesión activa</span>'; return;
-  }
-  const t = territories.find(x => x.id === activeSession.territory_id);
-  const started = new Date(activeSession.started_at).toLocaleString('es-MX');
-  el.innerHTML = '<div style="font-size:1rem;font-weight:600;color:var(--teal-lt);margin-bottom:4px;">● ' + (t ? t.name : 'N/A') + '</div>' +
-    '<div style="font-size:0.78rem;color:rgba(245,240,232,0.5);">Iniciado: ' + started + '</div>' +
-    (activeSession.preachers ? '<div style="font-size:0.78rem;color:rgba(245,240,232,0.5);">Predicadores: ' + activeSession.preachers + '</div>' : '');
-}
-
-function renderHistory() {
-  const el = document.getElementById('history-list');
-  if (!historyData.length) {
-    el.innerHTML = '<div style="color:rgba(245,240,232,0.4);text-align:center;padding:20px;">Sin registros aún</div>'; return;
-  }
-  el.innerHTML = historyData.map(h => {
-    const d = new Date(h.event_at).toLocaleString('es-MX', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
-    const icon = h.event === 'started' ? '▶' : h.event === 'ended' ? '■' : '↺';
-    const lbl = h.event === 'started' ? 'Iniciado' : h.event === 'ended' ? 'Finalizado' : h.event;
-    return '<div class="h-row ' + (h.event === 'ended' ? 'done' : '') + '">' +
-      '<div class="h-name">' + icon + ' ' + h.territory_name + ' — ' + lbl + '</div>' +
-      '<div class="h-date">' + d + (h.preachers ? ' · ' + h.preachers : '') + '</div></div>';
-  }).join('');
-}
-
-// ── ROUTE GENERATION ──────────────────────────────────────────────────────
-function generateRoute(territoryId) {
-  const t = territories.find(x => x.id === territoryId);
-  if (!t || !t.coordinates || !t.coordinates.length) return;
-  const coords = t.coordinates;
-  const lats = coords.map(c => c[0]);
-  const lngs = coords.map(c => c[1]);
-  const minLat = Math.min(...lats), maxLat = Math.max(...lats);
-  const minLng = Math.min(...lngs), maxLng = Math.max(...lngs);
-  const latStep = (maxLat - minLat) / 7;
-  const pts = [];
-  for (let i = 0; i <= 7; i++) {
-    const lat = minLat + i * latStep;
-    if (i % 2 === 0) { pts.push([lat, minLng]); pts.push([lat, maxLng]); }
-    else             { pts.push([lat, maxLng]); pts.push([lat, minLng]); }
-  }
-  if (routeLayer) leafMap.removeLayer(routeLayer);
-  routeLayer = L.polyline(pts, { color: '#3dafa0', weight: 2.5, opacity: 0.7, dashArray: '6,4' }).addTo(leafMap);
-
-  const steps = [
-    'Iniciar en la esquina suroeste del territorio',
-    'Avanzar hacia el este cubriendo la primera franja',
-    'Bajar una cuadra y regresar hacia el oeste',
-    'Repetir el patrón en serpentina hasta llegar al norte',
-    'Finalizar cubriendo la franja final del límite norte'
-  ];
-  document.getElementById('route-steps').innerHTML = steps.map((s, i) =>
-    '<div class="route-step"><div class="rs-num">' + (i+1) + '</div><div class="rs-txt">' + s + '</div></div>'
-  ).join('');
-  document.getElementById('route-card').style.display = 'block';
-}
-
-// ── SESSION MANAGEMENT ────────────────────────────────────────────────────
-async function startSession() {
-  const tid = document.getElementById('sel-territory').value;
-  const preachers = document.getElementById('inp-preachers').value.trim();
-  if (!tid) { notify('Selecciona un territorio', true); return; }
-
-  const { data: ex } = await db.from('sessions').select('id').eq('territory_id', tid).is('ended_at', null);
-  if (ex && ex.length) { notify('Este territorio ya tiene una sesión activa', true); return; }
-
-  const { data, error } = await db.from('sessions').insert({
-    territory_id: tid, preachers, started_at: new Date().toISOString(), route: []
-  }).select().single();
-  if (error) { notify('Error al iniciar sesión', true); console.error(error); return; }
-
-  activeSession = data;
-  const t = territories.find(x => x.id === tid);
-  await db.from('territories').update({ status: 'active', updated_at: new Date().toISOString() }).eq('id', tid);
-  await db.from('territory_history').insert({ territory_id: tid, territory_name: t?.name || '', event: 'started', preachers });
-
-  territories = territories.map(x => x.id === tid ? { ...x, status: 'active' } : x);
-  renderTerritoryList(); renderMapTerritories(); updateStats(); updateActiveInfo();
-  generateRoute(tid);
-  notify('Predicación iniciada en ' + (t?.name || ''));
-}
-
-async function endSession() {
-  if (!activeSession) { notify('No hay sesión activa', true); return; }
-  const tid = activeSession.territory_id;
-  await db.from('sessions').update({ ended_at: new Date().toISOString() }).eq('id', activeSession.id);
-  await db.from('territories').update({ status: 'done', updated_at: new Date().toISOString() }).eq('id', tid);
-  const t = territories.find(x => x.id === tid);
-  await db.from('territory_history').insert({ territory_id: tid, territory_name: t?.name || '', event: 'ended', preachers: activeSession.preachers });
-
-  territories = territories.map(x => x.id === tid ? { ...x, status: 'done' } : x);
-  activeSession = null;
-  if (routeLayer) { leafMap.removeLayer(routeLayer); routeLayer = null; }
-  document.getElementById('route-card').style.display = 'none';
-  renderTerritoryList(); renderMapTerritories(); updateStats(); updateActiveInfo();
-  await loadHistory();
-  notify('Territorio ' + (t?.name || '') + ' completado ✓');
-}
-
-// ── RESET TERRITORY ───────────────────────────────────────────────────────
-async function resetTerritory() {
-  const tid = document.getElementById('sel-reset').value;
-  if (!tid) return;
-  await db.from('territories').update({ status: 'pending', updated_at: new Date().toISOString() }).eq('id', tid);
-  await db.from('sessions').update({ ended_at: new Date().toISOString() }).eq('territory_id', tid).is('ended_at', null);
-  const t = territories.find(x => x.id === tid);
-  await db.from('territory_history').insert({ territory_id: tid, territory_name: t?.name || '', event: 'reset' });
-  territories = territories.map(x => x.id === tid ? { ...x, status: 'pending' } : x);
-  if (activeSession && activeSession.territory_id === tid) activeSession = null;
-  renderTerritoryList(); renderMapTerritories(); updateStats(); updateActiveInfo();
-  await loadHistory();
-  notify('Territorio restablecido a pendiente');
-}
-
-// ── DIVIDE MODE ───────────────────────────────────────────────────────────
-function activateDivideMode() {
-  divideMode = true; dividePoints = [];
-  const tid = document.getElementById('sel-divide').value;
-  selectedTerr = territories.find(t => t.id === tid);
-  if (!selectedTerr) { notify('Selecciona un territorio', true); return; }
-  highlightTerritory(tid);
-  if (polyLayers[tid]) leafMap.fitBounds(polyLayers[tid].poly.getBounds(), { padding: [30, 30] });
-  document.getElementById('divide-hint').style.display = 'block';
-  document.getElementById('divide-btns').style.display = 'flex';
-  document.getElementById('btn-divide-mode').textContent = '📍 Clic en el mapa para agregar puntos';
-  leafMap.on('click', onMapClickDivide);
-  showInfo('Modo división activo — haz clic para agregar puntos de corte');
-}
-
-function onMapClickDivide(e) {
-  if (!divideMode) return;
-  dividePoints.push([e.latlng.lat, e.latlng.lng]);
-  if (dividePoly) leafMap.removeLayer(dividePoly);
-  dividePoly = L.polyline(dividePoints, { color: '#c49a2a', weight: 3, dashArray: '8,4' }).addTo(leafMap);
-  L.circleMarker([e.latlng.lat, e.latlng.lng], { radius: 5, fillColor: '#c49a2a', fillOpacity: 1, color: 'white', weight: 2 }).addTo(leafMap);
-  showInfo('Punto ' + dividePoints.length + ' agregado — agrega más o presiona Cortar');
-}
-
-async function executeDivide() {
-  if (dividePoints.length < 2) { notify('Necesitas al menos 2 puntos', true); return; }
-  if (!selectedTerr) { notify('Selecciona un territorio', true); return; }
-  try {
-    const ring = selectedTerr.coordinates.map(c => [c[1], c[0]]);
-    if (ring[0][0] !== ring[ring.length-1][0] || ring[0][1] !== ring[ring.length-1][1]) ring.push(ring[0]);
-    const poly = turf.polygon([ring]);
-    const line = turf.lineString(dividePoints.map(p => [p[1], p[0]]));
-    const split = turf.lineSplit(poly, line);
-    if (!split || split.features.length < 2) { notify('La línea debe atravesar completamente el territorio', true); return; }
-    await db.from('territories').delete().eq('id', selectedTerr.id);
-    const idx = territories.findIndex(t => t.id === selectedTerr.id);
-    for (let i = 0; i < split.features.length; i++) {
-      const coords = split.features[i].geometry.coordinates[0].map(c => [c[1], c[0]]);
-      await db.from('territories').insert({
-        name: selectedTerr.name + '-' + String.fromCharCode(65 + i),
-        description: selectedTerr.description,
-        color: COLORS[(idx + i) % COLORS.length],
-        coordinates: coords, status: 'pending'
-      });
-    }
-    cancelDivide();
-    await loadTerritories();
-    notify('Territorio dividido en ' + split.features.length + ' partes ✓');
-  } catch(e) {
-    console.error(e);
-    notify('Error al dividir — la línea debe cruzar el polígono completamente', true);
-  }
-}
-
-function cancelDivide() {
-  divideMode = false; dividePoints = [];
-  if (dividePoly) { leafMap.removeLayer(dividePoly); dividePoly = null; }
-  leafMap.off('click', onMapClickDivide);
-  document.getElementById('divide-hint').style.display = 'none';
-  document.getElementById('divide-btns').style.display = 'none';
-  document.getElementById('btn-divide-mode').textContent = '✂ Activar modo división';
-  showInfo('');
-}
-
-// ── IMPORT KML ────────────────────────────────────────────────────────────
-async function importKMLFile() {
-  const file = document.getElementById('kml-file').files[0];
-  if (!file) { notify('Selecciona un archivo KML', true); return; }
-  const text = await file.text();
-  const parsed = parseKML(text);
-  if (!parsed.length) { notify('No se encontraron territorios en el KML', true); return; }
-  for (let i = 0; i < parsed.length; i++) {
-    await db.from('territories').insert({
-      name: parsed[i].name, description: parsed[i].description,
-      color: COLORS[i % COLORS.length], coordinates: parsed[i].coordinates, status: 'pending'
-    });
-  }
-  await loadTerritories();
-  notify(parsed.length + ' territorios importados ✓');
-}
-
-// ── LOCATION ──────────────────────────────────────────────────────────────
-function locateMe() {
-  if (!navigator.geolocation) { notify('Geolocalización no disponible', true); return; }
-  navigator.geolocation.getCurrentPosition(pos => {
-    const { latitude: lat, longitude: lng } = pos.coords;
-    if (userMarker) leafMap.removeLayer(userMarker);
-    userMarker = L.circleMarker([lat, lng], { radius: 10, fillColor: '#c49a2a', fillOpacity: 1, color: 'white', weight: 3 }).addTo(leafMap);
-    leafMap.setView([lat, lng], 16);
-    document.getElementById('location-info').textContent = 'Lat: ' + lat.toFixed(6) + ', Lng: ' + lng.toFixed(6);
-    const found = territories.find(t => t.coordinates && isInPoly([lat, lng], t.coordinates));
-    showInfo(found ? 'Estás en: ' + found.name : 'Fuera de los territorios definidos');
-  }, () => notify('No se pudo obtener la ubicación', true));
-}
-
-function isInPoly(pt, poly) {
-  const [y, x] = pt;
-  let inside = false;
-  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-    const [yi, xi] = poly[i], [yj, xj] = poly[j];
-    if (((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi)) inside = !inside;
-  }
-  return inside;
-}
-
-// ── UI HELPERS ────────────────────────────────────────────────────────────
-function switchTab(name) {
-  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  const panel = document.getElementById('panel-' + name);
-  const btn = document.getElementById('tab-' + name);
-  if (panel) panel.classList.add('active');
-  if (btn) btn.classList.add('active');
-}
-
-function showAllTerritories() {
-  if (!territories.length) return;
-  const bounds = L.latLngBounds();
-  territories.forEach(t => { if (t.coordinates) t.coordinates.forEach(c => bounds.extend(c)); });
-  if (bounds.isValid()) leafMap.fitBounds(bounds, { padding: [40, 40] });
-}
-
-function toggleSidebar() {
-  sidebarOpen = !sidebarOpen;
-  document.getElementById('sidebar').style.transform = sidebarOpen ? '' : 'translateX(-340px)';
-  document.getElementById('sb-toggle').textContent = sidebarOpen ? '☰' : '▶';
-}
-
-function showInfo(msg) {
-  const el = document.getElementById('map-info');
-  el.textContent = msg;
-  if (msg) { el.classList.add('vis'); clearTimeout(infoTimer); infoTimer = setTimeout(() => el.classList.remove('vis'), 3000); }
-  else el.classList.remove('vis');
-}
-
-function notify(msg, isErr) {
-  const el = document.getElementById('notif');
-  el.textContent = msg;
-  el.className = isErr ? 'show err' : 'show';
-  clearTimeout(el._t);
-  el._t = setTimeout(() => { el.className = ''; }, 3500);
-}
-
-// ── EXPOSE GLOBALS (onclick handlers) ────────────────────────────────────
-window.switchTab        = switchTab;
-window.selectTerritory  = selectTerritory;
-window.startSession     = startSession;
-window.endSession       = endSession;
-window.resetTerritory   = resetTerritory;
-window.locateMe         = locateMe;
-window.showAllTerritories = showAllTerritories;
-window.toggleSidebar    = toggleSidebar;
-window.activateDivideMode = activateDivideMode;
-window.executeDivide    = executeDivide;
-window.cancelDivide     = cancelDivide;
-window.importKMLFile    = importKMLFile;
-
-// ── BOOT ──────────────────────────────────────────────────────────────────
-async function boot() {
-  initMap();
-  await loadTerritories();
-  await loadActiveSession();
-  await loadHistory();
-}
-
-boot();
-
-})(); // end IIFE
-</script>
+    <script src="app.js"></script>
 </body>
 </html>
