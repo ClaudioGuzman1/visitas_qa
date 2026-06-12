@@ -310,59 +310,77 @@ function generateAgenciaOrdenPdf(v){
 
 // ====== Helper: dibuja un bloque de seccion con imagenes ======
 // title: titulo seccion oscuro (navy), subtitle: barra teal (opcional), images: array dataURL
+// Coloca 2 fotos por fila/página. El encabezado siempre queda en la misma página que su foto.
 function drawPhotoSection(doc, y, title, subtitle, images, commentText){
-  // Titulo navy
+  const imgs = images || [];
+  const imgW = (CONTENT_W - 4) / 2;   // ancho de cada foto (2 columnas con gap)
+  const maxImgH = 90;                  // altura máxima por foto en mm
+  const headerH = 7;                   // altura barra navy
+  const subH = 6;                      // altura barra teal
+
+  // Para cada par de imágenes (o hueco vacío), calcular alturas
+  // Primero construir lista de "slots": título navy + subtítulo teal se emiten una sola vez
+  // luego filas de 2 fotos
+
+  // --- Encabezado navy (title) ---
   if(title){
     if(y > PAGE_H - 25){ doc.addPage(); y = 15; }
     doc.setFillColor(...COL_NAVY);
     doc.setTextColor(255,255,255);
     doc.setFont('helvetica','normal');
     doc.setFontSize(11);
-    doc.rect(MARGIN, y, CONTENT_W, 7, 'F');
+    doc.rect(MARGIN, y, CONTENT_W, headerH, 'F');
     doc.text(title, PAGE_W/2, y+5, {align:'center'});
-    y += 7;
-  }
-  // Subtitulo teal
-  if(subtitle){
-    if(y > PAGE_H - 25){ doc.addPage(); y = 15; }
-    doc.setFillColor(...COL_TEAL);
-    doc.setTextColor(255,255,255);
-    doc.setFontSize(10);
-    doc.rect(MARGIN, y, CONTENT_W, 6, 'F');
-    doc.text(subtitle, MARGIN+2, y+4.5);
-    y += 6;
+    y += headerH;
   }
 
-  // Marco contenedor para imagenes
-  const imgs = images || [];
-  if(imgs.length === 0){
-    const boxH = 20;
-    if(y + boxH > PAGE_H - 22){ doc.addPage(); y = 15; }
-    doc.setDrawColor(...COL_BORDER);
-    doc.setLineDashPattern([1,1],0);
-    doc.rect(MARGIN, y, CONTENT_W, boxH);
-    doc.setLineDashPattern([],0);
-    doc.setTextColor(180,180,180);
-    doc.setFontSize(9);
-    doc.text('(Sin fotografía)', PAGE_W/2, y+boxH/2+1, {align:'center'});
-    y += boxH;
-  } else {
-    for(const img of imgs){
-      const dim = getImageDisplaySize(img, CONTENT_W - 10);
-      const boxH = dim.h + 8;
-      if(y + boxH > PAGE_H - 22){ doc.addPage(); y = 15; }
+  // --- Subtítulo teal + fotos ---
+  // El subtítulo va pegado a la primera fila de fotos
+  if(subtitle || imgs.length > 0){
+    // Calcular altura de la primera fila para decidir salto de página
+    const firstRowImgs = imgs.slice(0,2);
+    const firstRowH = _calcRowH(doc, firstRowImgs, imgW, maxImgH);
+    const blockH = (subtitle ? subH : 0) + firstRowH;
+
+    if(y + blockH > PAGE_H - 22){ doc.addPage(); y = 15; }
+
+    if(subtitle){
+      doc.setFillColor(...COL_TEAL);
+      doc.setTextColor(255,255,255);
+      doc.setFontSize(10);
+      doc.rect(MARGIN, y, CONTENT_W, subH, 'F');
+      doc.text(subtitle, MARGIN+2, y+4.5);
+      y += subH;
+    }
+
+    if(imgs.length === 0){
+      // Sin fotos: espacio vacío respetando aspecto
+      const emptyH = maxImgH * 0.5;
+      if(y + emptyH > PAGE_H - 22){ doc.addPage(); y = 15; }
       doc.setDrawColor(...COL_BORDER);
       doc.setLineDashPattern([1,1],0);
-      doc.rect(MARGIN, y, CONTENT_W, boxH);
+      doc.rect(MARGIN, y, CONTENT_W, emptyH);
       doc.setLineDashPattern([],0);
-      try{
-        doc.addImage(img, 'JPEG', MARGIN + (CONTENT_W-dim.w)/2, y+4, dim.w, dim.h);
-      }catch(e){}
-      y += boxH;
+      doc.setTextColor(180,180,180);
+      doc.setFontSize(9);
+      doc.text('(Sin fotografía)', PAGE_W/2, y+emptyH/2+1, {align:'center'});
+      y += emptyH;
+    } else {
+      // Filas de 2 fotos
+      for(let i=0; i<imgs.length; i+=2){
+        const rowImgs = imgs.slice(i, i+2);
+        const rowH = _calcRowH(doc, rowImgs, imgW, maxImgH);
+
+        // Si no es la primera fila (ya colocada tras subtítulo), verificar salto
+        if(i > 0 && y + rowH > PAGE_H - 22){ doc.addPage(); y = 15; }
+
+        _drawPhotoRow(doc, y, rowImgs, imgW, rowH);
+        y += rowH + 2;
+      }
     }
   }
 
-  // Comentarios
+  // --- Comentarios ---
   if(commentText !== undefined){
     const lines = doc.splitTextToSize(commentText || '', CONTENT_W - 4);
     const boxH = Math.max(8, lines.length*4 + 5);
@@ -380,6 +398,46 @@ function drawPhotoSection(doc, y, title, subtitle, images, commentText){
   }
 
   return y + 3;
+}
+
+// Calcula la altura de una fila de hasta 2 imágenes
+function _calcRowH(doc, rowImgs, imgW, maxImgH){
+  if(!rowImgs || rowImgs.length === 0) return maxImgH * 0.5 + 8;
+  let rowH = 0;
+  rowImgs.forEach(img=>{
+    const dim = getImageDisplaySize(img, imgW - 4);
+    rowH = Math.max(rowH, dim.h);
+  });
+  return Math.min(rowH, maxImgH) + 8; // +8 padding
+}
+
+// Dibuja una fila de 1 o 2 imágenes centradas en sus celdas
+function _drawPhotoRow(doc, y, rowImgs, imgW, rowH){
+  const gap = 4;
+  const positions = [MARGIN, MARGIN + imgW + gap];
+  rowImgs.forEach((img, col)=>{
+    const x = positions[col];
+    doc.setDrawColor(...COL_BORDER);
+    doc.setLineDashPattern([1,1],0);
+    doc.rect(x, y, imgW, rowH);
+    doc.setLineDashPattern([],0);
+    try{
+      const dim = getImageDisplaySize(img, imgW - 4);
+      const dh = Math.min(dim.h, rowH - 4);
+      const dw = dim.w * (dh / dim.h);
+      const ix = x + (imgW - dw) / 2;
+      const iy = y + (rowH - dh) / 2;
+      doc.addImage(img, 'JPEG', ix, iy, dw, dh);
+    }catch(e){}
+  });
+  // Si solo hay 1 imagen, dibujar celda vacía en la segunda posición
+  if(rowImgs.length === 1){
+    const x = positions[1];
+    doc.setDrawColor(...COL_BORDER);
+    doc.setLineDashPattern([1,1],0);
+    doc.rect(x, y, imgW, rowH);
+    doc.setLineDashPattern([],0);
+  }
 }
 
 // Calcula tamaño de imagen embebida (max width), preservando proporcion, max height 90mm
