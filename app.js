@@ -75,22 +75,12 @@ function showForm(){
 // Tabs
 document.querySelectorAll('.tabs button').forEach(btn=>{
   btn.addEventListener('click', ()=>{
-    autoSave();
     document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('active'));
     document.querySelectorAll('.tabpanel').forEach(p=>p.classList.remove('active'));
     btn.classList.add('active');
     document.querySelector(`.tabpanel[data-tab="${btn.dataset.tab}"]`).classList.add('active');
   });
 });
-
-// Autosave debounced on any form input change
-let _autoSaveTimer = null;
-function scheduleAutoSave(){
-  clearTimeout(_autoSaveTimer);
-  _autoSaveTimer = setTimeout(autoSave, 800);
-}
-document.getElementById('viewForm').addEventListener('input', scheduleAutoSave);
-document.getElementById('viewForm').addEventListener('change', scheduleAutoSave);
 
 // ====== Render lista ======
 function renderList(){
@@ -435,7 +425,6 @@ function setupSignaturePad(id){
   }
   function end(e){
     sigCanvases[id].drawing = false;
-    scheduleAutoSave();
   }
   canvas.addEventListener('mousedown', start);
   canvas.addEventListener('mousemove', move);
@@ -481,9 +470,7 @@ function loadSignatureToCanvas(id, dataUrl){
 // ====== Botones principales ======
 document.getElementById('btnNueva').addEventListener('click', ()=>{
   currentVisit = newVisit();
-  editingId = currentVisit.id;
-  visitas.push(currentVisit);
-  saveVisitas();
+  editingId = null;
   document.getElementById('formTitle').textContent = 'Nueva Visita de Calidad';
   loadFormFromVisit(currentVisit);
   showForm();
@@ -499,30 +486,24 @@ function openEdit(id){
   showForm();
 }
 
-// Autosave: sync currentVisit to visitas array and localStorage
-function autoSave(){
-  if(!currentVisit || !editingId) return;
-  saveFormToVisit();
-  const idx = visitas.findIndex(v=>v.id===editingId);
-  if(idx>=0) visitas[idx] = currentVisit;
-  saveVisitas();
-}
-
 document.getElementById('btnGuardar').addEventListener('click', ()=>{
   saveFormToVisit();
   if(!currentVisit.nombre){
     currentVisit.nombre = currentVisit.general.sitio || 'Visita sin nombre';
   }
-  const idx = visitas.findIndex(v=>v.id===editingId);
-  if(idx>=0) visitas[idx] = currentVisit;
-  else { visitas.push(currentVisit); editingId = currentVisit.id; }
+  if(editingId){
+    const idx = visitas.findIndex(v=>v.id===editingId);
+    if(idx>=0) visitas[idx] = currentVisit;
+  } else {
+    visitas.push(currentVisit);
+    editingId = currentVisit.id;
+  }
   saveVisitas();
   showToast('Visita guardada.');
   document.getElementById('formTitle').textContent = 'Editar Visita: ' + (currentVisit.nombre || '(sin nombre)');
 });
 
 document.getElementById('btnCancelar').addEventListener('click', ()=>{
-  autoSave();
   showList();
 });
 
