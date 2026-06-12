@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Visitas de Calidad - IBServices</title>
+<script src="jspdf.umd.min.js"></script>
+<style>
+  :root{
+    --navy:#1F4E79;
+    --teal:#1B9E9E;
+    --green:#93C47D;
+    --gray-bg:#f4f4f4;
+    --border:#cccccc;
+  }
+  *{box-sizing:border-box;}
+  body{
+    font-family: Arial, Helvetica, sans-serif;
+    margin:0; background:#eef1f4; color:#222;
+  }
+  header.app-header{
+    background:var(--navy); color:#fff; padding:14px 18px;
+    display:flex; align-items:center; justify-content:space-between;
+    flex-wrap:wrap; gap:8px;
+  }
+  header.app-header h1{margin:0; font-size:1.2rem; font-weight:600;}
+  header.app-header .logo{display:flex; align-items:center; gap:10px;}
+  header.app-header img{height:32px;}
+  main{max-width:960px; margin:0 auto; padding:16px;}
+  .card{
+    background:#fff; border-radius:8px; padding:16px; margin-bottom:16px;
+    box-shadow:0 1px 3px rgba(0,0,0,0.1);
+  }
+  h2{color:var(--navy); margin-top:0;}
+  h3{color:var(--teal); border-bottom:2px solid var(--teal); padding-bottom:4px;}
+  .btn{
+    display:inline-block; padding:10px 16px; border:none; border-radius:6px;
+    background:var(--teal); color:#fff; font-size:0.95rem; cursor:pointer;
+    text-decoration:none; font-weight:600;
+  }
+  .btn:hover{opacity:0.9;}
+  .btn.secondary{background:#888;}
+  .btn.navy{background:var(--navy);}
+  .btn.danger{background:#c0392b;}
+  .btn.green{background:#5a9b3f;}
+  .btn:disabled{opacity:0.5; cursor:not-allowed;}
+  .btn-row{display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;}
+  table.list{width:100%; border-collapse:collapse;}
+  table.list th, table.list td{
+    border:1px solid var(--border); padding:8px; text-align:left; font-size:0.9rem;
+  }
+  table.list th{background:var(--navy); color:#fff;}
+  table.list tr:nth-child(even){background:var(--gray-bg);}
+  .empty-msg{padding:30px; text-align:center; color:#777;}
+  .form-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .form-grid.full, .field.full{grid-column:1 / -1;}
+  .field label{display:block; font-weight:600; margin-bottom:4px; font-size:0.9rem; color:var(--navy);}
+  .field input[type=text], .field input[type=date], .field input[type=number], .field textarea, .field select{
+    width:100%; padding:8px; border:1px solid var(--border); border-radius:4px; font-size:0.95rem;
+  }
+  .field textarea{resize:vertical; min-height:50px;}
+  .checklist-table{width:100%; border-collapse:collapse; margin-bottom:14px;}
+  .checklist-table th, .checklist-table td{border:1px solid var(--border); padding:6px; font-size:0.85rem; vertical-align:top;}
+  .checklist-table th{background:var(--teal); color:#fff;}
+  .checklist-table td.num{width:40px; text-align:center; background:var(--gray-bg); font-weight:bold;}
+  .checklist-table td.desc{width:45%;}
+  .checklist-table td.radio{width:50px; text-align:center;}
+  .checklist-table td.valor{width:120px;}
+  .checklist-table .hint{font-size:0.75rem; color:#777; display:block;}
+  .section-bar{background:var(--navy); color:#fff; padding:6px 10px; font-weight:600; margin:14px 0 0 0;}
+  .subsection-bar{background:var(--teal); color:#fff; padding:6px 10px; font-weight:600; margin:0 0 8px 0;}
+  .photo-block{border:1px dashed var(--border); padding:10px; margin-bottom:10px; background:var(--gray-bg);}
+  .photo-block h4{margin:0 0 6px 0; color:var(--navy);}
+  .photo-preview{display:flex; gap:10px; flex-wrap:wrap; margin-top:8px;}
+  .photo-preview .ph{position:relative; width:140px;}
+  .photo-preview img{width:140px; height:100px; object-fit:cover; border:1px solid var(--border); border-radius:4px;}
+  .photo-preview .rm{
+    position:absolute; top:-8px; right:-8px; background:#c0392b; color:#fff;
+    border-radius:50%; width:22px; height:22px; border:none; cursor:pointer; font-weight:bold;
+  }
+  .sig-wrap{border:1px solid var(--border); background:#fff; border-radius:4px; touch-action:none;}
+  canvas.sigpad{width:100%; height:150px; display:block; touch-action:none;}
+  .tabs{display:flex; gap:4px; margin-bottom:12px; flex-wrap:wrap;}
+  .tabs button{
+    padding:8px 14px; border:1px solid var(--navy); background:#fff; color:var(--navy);
+    border-radius:6px 6px 0 0; cursor:pointer; font-weight:600;
+  }
+  .tabs button.active{background:var(--navy); color:#fff;}
+  .tabpanel{display:none;}
+  .tabpanel.active{display:block;}
+  .hidden{display:none !important;}
+  .footer-note{font-size:0.8rem; color:#777; text-align:center; margin-top:10px;}
+  .toast{
+    position:fixed; bottom:16px; right:16px; background:var(--navy); color:#fff;
+    padding:10px 16px; border-radius:6px; box-shadow:0 2px 6px rgba(0,0,0,0.3);
+    z-index:999; max-width:300px;
+  }
+  .small-btn{font-size:0.8rem; padding:6px 10px;}
+  @media (max-width:700px){
+    .form-grid{grid-template-columns:1fr;}
+    table.list{font-size:0.8rem;}
+  }
+</style>
+</head>
+<body>
+
+<header class="app-header">
+  <div class="logo">
+    <img id="logoImg" src="" alt="IBServices">
+    <h1>Visitas de Calidad</h1>
+  </div>
+  <div class="btn-row" style="margin:0;">
+    <button class="btn green" id="btnNueva">+ Nueva Visita</button>
+    <button class="btn secondary small-btn" id="btnExport">Exportar datos</button>
+    <button class="btn secondary small-btn" id="btnImport">Importar datos</button>
+    <input type="file" id="fileImport" accept="application/json" class="hidden">
+  </div>
+</header>
+
+<main>
+
+  <!-- VISTA LISTA -->
+  <section id="viewList" class="card">
+    <h2>Visitas de Calidad guardadas</h2>
+    <div id="listContainer"></div>
+  </section>
+
+  <!-- VISTA FORMULARIO -->
+  <section id="viewForm" class="card hidden">
+    <h2 id="formTitle">Nueva Visita de Calidad</h2>
+
+    <div class="tabs">
+      <button data-tab="general" class="active">Datos generales</button>
+      <button data-tab="protocolo">Protocolo de revisión</button>
+      <button data-tab="terminal">Terminal</button>
+      <button data-tab="fotosAgencia">Fotos - Agencia</button>
+      <button data-tab="fotosTerminal">Fotos - Terminal</button>
+      <button data-tab="firmas">Firmas</button>
+    </div>
+
+    <!-- TAB GENERAL -->
+    <div class="tabpanel active" data-tab="general">
+      <div class="form-grid">
+        <div class="field"><label>Nombre de la visita (referencia interna)</label>
+          <input type="text" id="f_visitName" placeholder="Ej. Sucursal Centro - Junio 2026"></div>
+        <div class="field"><label>Ticket de servicio</label>
+          <input type="text" id="f_ticket"></div>
+        <div class="field"><label>Fecha</label>
+          <input type="date" id="f_fecha"></div>
+        <div class="field"><label>Nombre del sitio / agencia</label>
+          <input type="text" id="f_sitio"></div>
+        <div class="field full"><label>Cliente</label>
+          <input type="text" id="f_cliente"></div>
+        <div class="field"><label>Contacto del cliente en sitio</label>
+          <input type="text" id="f_contacto"></div>
+        <div class="field"><label>Dirección</label>
+          <input type="text" id="f_direccion"></div>
+        <div class="field full"><label>Código Postal, entidad federativa, municipio</label>
+          <input type="text" id="f_cp"></div>
+        <div class="field"><label>Tel</label>
+          <input type="text" id="f_tel"></div>
+        <div class="field"><label>Ext</label>
+          <input type="text" id="f_ext"></div>
+        <div class="field full"><label>Correo</label>
+          <input type="text" id="f_correo"></div>
+      </div>
+    </div>
+
+    <!-- TAB PROTOCOLO (Orden de servicio agencia) -->
+    <div class="tabpanel" data-tab="protocolo">
+      <div class="section-bar">1. Energía y tierra – Instalación del cliente</div>
+      <table class="checklist-table" id="tbl_seccion1"></table>
+
+      <div class="section-bar">El apartado 2 se llenará al finalizar el protocolo con el responsable por el cliente</div>
+      <div class="section-bar" style="margin-top:0;">2. Conocimiento de operación – Cliente</div>
+      <table class="checklist-table" id="tbl_seccion2"></table>
+
+      <div class="field full"><label>Comentarios (Orden de servicio - Agencia)</label>
+        <textarea id="f_comentarios_agencia"></textarea></div>
+    </div>
+
+    <!-- TAB TERMINAL -->
+    <div class="tabpanel" data-tab="terminal">
+      <div class="form-grid">
+        <div class="field full"><label>ID de terminal en tablero (Nombre)</label>
+          <input type="text" id="t_id"></div>
+        <div class="field"><label>Número de serie</label>
+          <input type="text" id="t_serie"></div>
+        <div class="field"><label>MAC</label>
+          <input type="text" id="t_mac"></div>
+        <div class="field"><label>Versión de firmware</label>
+          <input type="text" id="t_firmware"></div>
+        <div class="field"><label>Validar configuración app (testigo fotográfico)</label>
+          <input type="text" id="t_validar" placeholder="Ver anexo fotográfico"></div>
+        <div class="field full"><label>Versión de biométrico</label>
+          <select id="t_biometrico">
+            <option value="G3.3C">G3.3C (necesario cambio de equipo)</option>
+            <option value="G3.4C">G3.4C</option>
+            <option value="G3.6C">G3.6C</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="section-bar">3. Energía y red por terminal</div>
+      <table class="checklist-table" id="tbl_seccion3"></table>
+
+      <div class="section-bar">4. Hardware y entorno ambiental</div>
+      <table class="checklist-table" id="tbl_seccion4"></table>
+
+      <div class="field full"><label>Comentarios (Orden de servicio - Terminal)</label>
+        <textarea id="f_comentarios_terminal"></textarea></div>
+    </div>
+
+    <!-- TAB FOTOS AGENCIA -->
+    <div class="tabpanel" data-tab="fotosAgencia">
+      <div class="form-grid full">
+        <div class="field full"><label>Nombre del sitio (para encabezado del anexo)</label>
+          <input type="text" id="fa_nombreSitio"></div>
+      </div>
+
+      <div class="photo-block">
+        <h4>Foto tablero principal y/o secundario - Área completa y vista cercana</h4>
+        <input type="file" accept="image/*" multiple data-photo="ag_tablero">
+        <div class="photo-preview" data-preview="ag_tablero"></div>
+      </div>
+
+      <div class="photo-block">
+        <h4>Voltaje de salida del tablero - Multímetro fase-neutro (110-137)</h4>
+        <input type="file" accept="image/*" multiple data-photo="ag_fn">
+        <div class="photo-preview" data-preview="ag_fn"></div>
+      </div>
+
+      <div class="photo-block">
+        <h4>Voltaje de salida del tablero - Multímetro neutro-tierra (0-5)</h4>
+        <input type="file" accept="image/*" multiple data-photo="ag_nt">
+        <div class="photo-preview" data-preview="ag_nt"></div>
+      </div>
+
+      <div class="photo-block">
+        <h4>Tierra física - Telurómetro (menor a 3 ohms)</h4>
+        <input type="file" accept="image/*" multiple data-photo="ag_telurometro">
+        <div class="photo-preview" data-preview="ag_telurometro"></div>
+        <div class="field full" style="margin-top:8px;"><label>Comentarios (Tierra física)</label>
+          <textarea id="ag_telurometro_comments"></textarea></div>
+      </div>
+
+      <div class="photo-block">
+        <h4>Registro - Complementarias, registros</h4>
+        <input type="file" accept="image/*" multiple data-photo="ag_registro">
+        <div class="photo-preview" data-preview="ag_registro"></div>
+        <div class="field full" style="margin-top:8px;"><label>Comentarios (Registro)</label>
+          <textarea id="ag_registro_comments"></textarea></div>
+      </div>
+    </div>
+
+    <!-- TAB FOTOS TERMINAL -->
+    <div class="tabpanel" data-tab="fotosTerminal">
+      <div class="form-grid full">
+        <div class="field full"><label>Nombre de la terminal (para encabezado del anexo)</label>
+          <input type="text" id="ft_nombreTerminal"></div>
+      </div>
+
+      <div class="photo-block">
+        <h4>Foto terminal - Área completa y vista cercana</h4>
+        <input type="file" accept="image/*" multiple data-photo="te_terminal">
+        <div class="photo-preview" data-preview="te_terminal"></div>
+      </div>
+
+      <div class="photo-block">
+        <h4>Pantalla de configuración: red y status</h4>
+        <input type="file" accept="image/*" multiple data-photo="te_config">
+        <div class="photo-preview" data-preview="te_config"></div>
+        <div class="field full" style="margin-top:8px;"><label>Comentarios</label>
+          <textarea id="te_config_comments"></textarea></div>
+      </div>
+
+      <div class="photo-block">
+        <h4>Número de serie Terminal</h4>
+        <input type="file" accept="image/*" multiple data-photo="te_serie">
+        <div class="photo-preview" data-preview="te_serie"></div>
+      </div>
+
+      <div class="photo-block">
+        <h4>Mediciones - Multímetro fase-neutro (110-137)</h4>
+        <input type="file" accept="image/*" multiple data-photo="te_fn">
+        <div class="photo-preview" data-preview="te_fn"></div>
+      </div>
+
+      <div class="photo-block">
+        <h4>Mediciones - Multímetro neutro-tierra (0-5)</h4>
+        <input type="file" accept="image/*" multiple data-photo="te_nt">
+        <div class="photo-preview" data-preview="te_nt"></div>
+        <div class="field full" style="margin-top:8px;"><label>Comentarios (Mediciones)</label>
+          <textarea id="te_mediciones_comments"></textarea></div>
+      </div>
+
+      <div class="photo-block">
+        <h4>Voltaje de salida (13.6-13.9) calibrada la fuente conmutada</h4>
+        <input type="file" accept="image/*" multiple data-photo="te_voltaje">
+        <div class="photo-preview" data-preview="te_voltaje"></div>
+        <div class="field full" style="margin-top:8px;"><label>Comentarios (Voltaje de salida)</label>
+          <textarea id="te_voltaje_comments"></textarea></div>
+      </div>
+
+      <div class="photo-block">
+        <h4>PoE tester</h4>
+        <input type="file" accept="image/*" multiple data-photo="te_poe">
+        <div class="photo-preview" data-preview="te_poe"></div>
+        <div class="field full" style="margin-top:8px;"><label>Comentarios (PoE tester)</label>
+          <textarea id="te_poe_comments"></textarea></div>
+      </div>
+
+      <div class="photo-block">
+        <h4>Escaneo de cableado</h4>
+        <input type="file" accept="image/*" multiple data-photo="te_cableado">
+        <div class="photo-preview" data-preview="te_cableado"></div>
+        <div class="field full" style="margin-top:8px;"><label>Comentarios (Escaneo de cableado)</label>
+          <textarea id="te_cableado_comments"></textarea></div>
+      </div>
+
+      <div class="photo-block">
+        <h4>Complementarias de hardware y entorno ambiental</h4>
+        <input type="file" accept="image/*" multiple data-photo="te_complementarias">
+        <div class="photo-preview" data-preview="te_complementarias"></div>
+        <div class="field full" style="margin-top:8px;"><label>Comentarios</label>
+          <textarea id="te_complementarias_comments"></textarea></div>
+      </div>
+    </div>
+
+    <!-- TAB FIRMAS -->
+    <div class="tabpanel" data-tab="firmas">
+      <div class="form-grid">
+        <div class="field"><label>Nombre - Por IBServices</label>
+          <input type="text" id="firma_ib_nombre"></div>
+        <div class="field"><label>Nombre - Por cliente</label>
+          <input type="text" id="firma_cliente_nombre"></div>
+      </div>
+
+      <h3>Firma - Por IBServices</h3>
+      <div class="sig-wrap"><canvas class="sigpad" id="sig_ib"></canvas></div>
+      <div class="btn-row"><button class="btn secondary small-btn" data-clearsig="sig_ib">Borrar firma</button></div>
+
+      <h3>Firma - Por cliente</h3>
+      <div class="sig-wrap"><canvas class="sigpad" id="sig_cliente"></canvas></div>
+      <div class="btn-row"><button class="btn secondary small-btn" data-clearsig="sig_cliente">Borrar firma</button></div>
+
+      <h3>Firma - Terminal (Por IBServices)</h3>
+      <div class="sig-wrap"><canvas class="sigpad" id="sig_ib_term"></canvas></div>
+      <div class="btn-row"><button class="btn secondary small-btn" data-clearsig="sig_ib_term">Borrar firma</button></div>
+
+      <h3>Firma - Terminal (Por cliente)</h3>
+      <div class="sig-wrap"><canvas class="sigpad" id="sig_cliente_term"></canvas></div>
+      <div class="btn-row"><button class="btn secondary small-btn" data-clearsig="sig_cliente_term">Borrar firma</button></div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn navy" id="btnGuardar">Guardar Visita</button>
+      <button class="btn secondary" id="btnCancelar">Cancelar</button>
+    </div>
+    <div class="btn-row">
+      <button class="btn" id="btnGenAgenciaOrden">PDF: Agencia - Orden de servicio</button>
+      <button class="btn" id="btnGenAgenciaAnexo">PDF: Agencia - Anexo fotográfico</button>
+    </div>
+    <div class="btn-row">
+      <button class="btn" id="btnGenTerminalOrden">PDF: Terminal - Orden de servicio</button>
+      <button class="btn" id="btnGenTerminalAnexo">PDF: Terminal - Anexo fotográfico</button>
+    </div>
+    <div class="btn-row">
+      <button class="btn green" id="btnGenTodos">Generar los 4 PDF</button>
+    </div>
+  </section>
+
+  <p class="footer-note">Estimado cliente: revise y lea detenidamente este ticket de servicio, su firma representa la aceptación de los trabajos aquí descritos a su entera satisfacción. Gracias.</p>
+</main>
+
+<script src="data.js"></script>
+<script src="pdf.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
