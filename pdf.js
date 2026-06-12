@@ -308,9 +308,34 @@ function generateAgenciaOrdenPdf(v){
   downloadPdf(doc, `Orden_de_servicio_Agencia_${safeFilename(v.nombre)}.pdf`);
 }
 
+// Altura maxima de la imagen para que entren 2 fotografias por pagina
+const MAX_PHOTO_IMG_H = 90;
+
 // ====== Helper: dibuja un bloque de seccion con imagenes ======
 // title: titulo seccion oscuro (navy), subtitle: barra teal (opcional), images: array dataURL
 function drawPhotoSection(doc, y, title, subtitle, images, commentText){
+  const imgs = images || [];
+
+  // Altura del encabezado (titulo + subtitulo) que debe permanecer junto a la primera fotografia
+  let headerH = 0;
+  if(title) headerH += 7;
+  if(subtitle) headerH += 6;
+
+  // Altura de la primera "unidad" (encabezado + primera foto, o encabezado + placeholder)
+  let firstUnitH = headerH;
+  if(imgs.length === 0){
+    firstUnitH += 20; // placeholder "(Sin fotografía)"
+  } else {
+    const dim0 = getImageDisplaySize(imgs[0], CONTENT_W - 10);
+    firstUnitH += dim0.h + 8;
+  }
+
+  // Si el encabezado + primera foto no caben juntos en la pagina actual, saltar de pagina ANTES de dibujar el encabezado
+  if(headerH > 0 && y + firstUnitH > PAGE_H - 22){
+    doc.addPage();
+    y = 15;
+  }
+
   // Titulo navy
   if(title){
     if(y > PAGE_H - 25){ doc.addPage(); y = 15; }
@@ -334,7 +359,6 @@ function drawPhotoSection(doc, y, title, subtitle, images, commentText){
   }
 
   // Marco contenedor para imagenes
-  const imgs = images || [];
   if(imgs.length === 0){
     const boxH = 20;
     if(y + boxH > PAGE_H - 22){ doc.addPage(); y = 15; }
@@ -382,18 +406,19 @@ function drawPhotoSection(doc, y, title, subtitle, images, commentText){
   return y + 3;
 }
 
-// Calcula tamaño de imagen embebida (max width), preservando proporcion, max height 90mm
+// Calcula tamaño de imagen embebida (max width), preservando proporcion, altura limitada
+// para que entren exactamente 2 fotografias por pagina
 function getImageDisplaySize(dataUrl, maxW){
-  // Aproximacion: usamos relacion 4:3 por defecto (suficiente para layout consistente)
-  // jsPDF requiere dimensiones explicitas; usamos cache si la imagen ya fue medida
   const cacheKey = dataUrl.slice(0,100);
   if(_imgSizeCache[cacheKey]) {
     const {w,h} = _imgSizeCache[cacheKey];
     let dw = maxW, dh = h * (maxW/w);
-    if(dh > 90){ dh = 90; dw = w * (90/h); }
+    if(dh > MAX_PHOTO_IMG_H){ dh = MAX_PHOTO_IMG_H; dw = w * (MAX_PHOTO_IMG_H/h); }
     return {w:dw, h:dh};
   }
-  return {w:maxW, h:maxW*0.65};
+  let dw = maxW, dh = maxW*0.65;
+  if(dh > MAX_PHOTO_IMG_H){ dh = MAX_PHOTO_IMG_H; dw = dh/0.65; }
+  return {w:dw, h:dh};
 }
 const _imgSizeCache = {};
 function preloadImageSizes(images){
