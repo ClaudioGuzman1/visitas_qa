@@ -58,7 +58,7 @@ function formatFechaParts(fechaStr){
 
 // Pie de pagina con texto legal y barra de color
 function drawFooter(doc, pageNum){
-  const y = PAGE_H - 18;
+  const y = PAGE_H - 8;
   doc.setFont('helvetica','normal');
   doc.setFontSize(8);
   doc.setTextColor(80,80,80);
@@ -259,7 +259,7 @@ function generateAgenciaOrdenPdf(v){
   y += 6;
 
   // Firmas Por IBServices / Por cliente
-  if(y > PAGE_H - 70){ doc.addPage(); y = 15; }
+  // if(y > PAGE_H - 70){ doc.addPage(); y = 15; }
   const halfW = CONTENT_W/2;
   doc.setFontSize(12);
   doc.setFont('helvetica','bold');
@@ -293,9 +293,13 @@ function generateAgenciaOrdenPdf(v){
   }catch(e){}
   y += sigBoxH;
 
-  // Comentarios
+  // Comentarios (siempre en la pagina siguiente a las firmas)
+  doc.addPage();
+  y = 15;
   const comBoxH = 50;
-  if(y + comBoxH > PAGE_H - 22){ doc.addPage(); y = 15; }
+
+
+  //if(y + comBoxH > PAGE_H - 22){ doc.addPage(); y = 15; }
   doc.setFontSize(9);
   doc.setTextColor(0,0,0);
   doc.setFont('helvetica','normal');
@@ -509,7 +513,7 @@ function generateTerminalOrdenPdf(v){
     y += h;
   }
   infoRow('Número de serie', v.terminal.serie, 'MAC', v.terminal.mac);
-  infoRow('Versión de firmware', v.terminal.firmware, 'Validar configuración app', v.terminal.validar || 'Testigo fotográfico');
+  infoRow('Versión de firmware', v.terminal.firmware, 'Validar App Config', v.terminal.validar || 'Testigo fotográfico');
 
   // Biometrico row
   {
@@ -534,7 +538,10 @@ function generateTerminalOrdenPdf(v){
       doc.text(marker + opt, xpos[i], y+4.5);
       if(opt==='G3.3C'){
         doc.setFontSize(6);
+        doc.setTextColor(...COL_TEAL);
         doc.text('(necesario cambio de equipo)', xpos[i], y+8);
+        doc.setTextColor(0,0,0);
+
         doc.setFontSize(9);
       }
     });
@@ -550,7 +557,7 @@ function generateTerminalOrdenPdf(v){
   y += 6;
 
   // Firmas
-  if(y > PAGE_H - 70){ doc.addPage(); y = 15; }
+  //if(y > PAGE_H - 70){ doc.addPage(); y = 15; }
   const halfW = CONTENT_W/2;
   doc.setFontSize(12);
   doc.setFont('helvetica','bold');
@@ -582,9 +589,13 @@ function generateTerminalOrdenPdf(v){
   }catch(e){}
   y += sigBoxH;
 
-  // Comentarios
+  // Comentarios (siempre en la pagina siguiente a las firmas)
+  doc.addPage();
+  y = 15;
   const comBoxH = 50;
-  if(y + comBoxH > PAGE_H - 22){ doc.addPage(); y = 15; }
+
+
+  //if(y + comBoxH > PAGE_H - 22){ doc.addPage(); y = 15; }
   doc.setFontSize(9);
   doc.setTextColor(0,0,0);
   doc.setFont('helvetica','normal');
