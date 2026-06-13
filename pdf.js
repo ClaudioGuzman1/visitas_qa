@@ -229,7 +229,7 @@ function generateAgenciaOrdenPdf(v){
   doc.text('Tel: ' + (v.general.tel||''), MARGIN+2, y+3.8);
   doc.text('Ext: ' + (v.general.ext||''), MARGIN+CONTENT_W*0.45, y+3.8);
   doc.text('Correo: ' + (v.general.correo||''), MARGIN+CONTENT_W*0.6, y+3.8);
-  y += rh + 2;
+  y += rh + 5;
 
   // Protocolo de revision
   doc.setFontSize(11);
