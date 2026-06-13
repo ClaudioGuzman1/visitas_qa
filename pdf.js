@@ -100,35 +100,35 @@ function safeFilename(name){
 
 // ====== Tabla de checklist generica ======
 function drawChecklistTable(doc, y, items, dataObj, sectionTitle){
-  const colNum = 12, colSi = 14, colNo = 14, colValor = 28;
+  const colNum = 10, colSi = 12, colNo = 12, colValor = 26;
   const colDesc = CONTENT_W - colNum - colSi - colNo - colValor;
-  const rowH = 7;
+  const rowH = 6;
 
   // Encabezado de seccion (numero + titulo)
   doc.setFillColor(255,255,255);
   doc.setDrawColor(...COL_BORDER);
-  doc.setFontSize(10);
+  doc.setFontSize(9);
   doc.setFont('helvetica','bold');
   doc.setTextColor(0,0,0);
-  doc.rect(MARGIN, y, CONTENT_W, 7);
-  doc.text(sectionTitle, MARGIN + CONTENT_W/2, y+5, {align:'center'});
-  y += 7;
+  doc.rect(MARGIN, y, CONTENT_W, 6);
+  doc.text(sectionTitle, MARGIN + CONTENT_W/2, y+4.3, {align:'center'});
+  y += 6;
 
   // Encabezado de columnas
   doc.setFillColor(...COL_TEAL);
   doc.setTextColor(255,255,255);
-  doc.rect(MARGIN, y, colNum, 7, 'FD');
-  doc.rect(MARGIN+colNum, y, colDesc, 7, 'FD');
-  doc.rect(MARGIN+colNum+colDesc, y, colSi, 7, 'FD');
-  doc.rect(MARGIN+colNum+colDesc+colSi, y, colNo, 7, 'FD');
-  doc.rect(MARGIN+colNum+colDesc+colSi+colNo, y, colValor, 7, 'FD');
-  doc.setFontSize(8);
-  doc.text('Núm.', MARGIN+colNum/2, y+4.5, {align:'center'});
-  doc.text('Descripción', MARGIN+colNum+3, y+4.5);
-  doc.text('Sí', MARGIN+colNum+colDesc+colSi/2, y+4.5, {align:'center'});
-  doc.text('No', MARGIN+colNum+colDesc+colSi+colNo/2, y+4.5, {align:'center'});
-  doc.text('Valor', MARGIN+colNum+colDesc+colSi+colNo+3, y+4.5);
-  y += 7;
+  doc.rect(MARGIN, y, colNum, 6, 'FD');
+  doc.rect(MARGIN+colNum, y, colDesc, 6, 'FD');
+  doc.rect(MARGIN+colNum+colDesc, y, colSi, 6, 'FD');
+  doc.rect(MARGIN+colNum+colDesc+colSi, y, colNo, 6, 'FD');
+  doc.rect(MARGIN+colNum+colDesc+colSi+colNo, y, colValor, 6, 'FD');
+  doc.setFontSize(7);
+  doc.text('Núm.', MARGIN+colNum/2, y+4, {align:'center'});
+  doc.text('Descripción', MARGIN+colNum+2, y+4);
+  doc.text('Sí', MARGIN+colNum+colDesc+colSi/2, y+4, {align:'center'});
+  doc.text('No', MARGIN+colNum+colDesc+colSi+colNo/2, y+4, {align:'center'});
+  doc.text('Valor', MARGIN+colNum+colDesc+colSi+colNo+2, y+4);
+  y += 6;
 
   doc.setTextColor(0,0,0);
   doc.setFont('helvetica','normal');
@@ -137,11 +137,11 @@ function drawChecklistTable(doc, y, items, dataObj, sectionTitle){
     const [num, desc, defVal] = it;
     const state = (dataObj && dataObj[num]) || {resp:'', valor: defVal || ''};
 
-    doc.setFontSize(8);
-    const descLines = doc.splitTextToSize(desc, colDesc - 4);
-    const valLines = doc.splitTextToSize(state.valor || '', colValor - 4);
-    const lineH = 4;
-    const thisRowH = Math.max(rowH, Math.max(descLines.length, valLines.length) * lineH + 2);
+    doc.setFontSize(7);
+    const descLines = doc.splitTextToSize(desc, colDesc - 3);
+    const valLines = doc.splitTextToSize(state.valor || '', colValor - 3);
+    const lineH = 3.2;
+    const thisRowH = Math.max(rowH, Math.max(descLines.length, valLines.length) * lineH + 1.8);
 
     // Salto de pagina si no entra
     if(y + thisRowH > PAGE_H - 22){
@@ -158,17 +158,17 @@ function drawChecklistTable(doc, y, items, dataObj, sectionTitle){
     doc.rect(MARGIN+colNum+colDesc+colSi+colNo, y, colValor, thisRowH);
 
     doc.setFont('helvetica','bold');
-    doc.text(num, MARGIN+colNum/2, y+thisRowH/2+1.5, {align:'center'});
+    doc.text(num, MARGIN+colNum/2, y+thisRowH/2+1.2, {align:'center'});
     doc.setFont('helvetica','normal');
-    doc.text(descLines, MARGIN+colNum+2, y+5);
-    doc.text(valLines, MARGIN+colNum+colDesc+colSi+colNo+2, y+5);
+    doc.text(descLines, MARGIN+colNum+1.5, y+4);
+    doc.text(valLines, MARGIN+colNum+colDesc+colSi+colNo+1.5, y+4);
 
     // Marca X en Si/No
     doc.setFont('helvetica','bold');
     if(state.resp === 'si'){
-      doc.text('X', MARGIN+colNum+colDesc+colSi/2, y+thisRowH/2+1.5, {align:'center'});
+      doc.text('X', MARGIN+colNum+colDesc+colSi/2, y+thisRowH/2+1.2, {align:'center'});
     } else if(state.resp === 'no'){
-      doc.text('X', MARGIN+colNum+colDesc+colSi+colNo/2, y+thisRowH/2+1.5, {align:'center'});
+      doc.text('X', MARGIN+colNum+colDesc+colSi+colNo/2, y+thisRowH/2+1.2, {align:'center'});
     }
     doc.setFont('helvetica','normal');
 
@@ -185,32 +185,26 @@ function generateAgenciaOrdenPdf(v){
 
   // Titulo
   doc.setFont('helvetica','normal');
-  doc.setFontSize(18);
+  doc.setFontSize(15);
   doc.setTextColor(...COL_NAVY);
-  doc.text('Orden de Servicio – Visita de Calidad', PAGE_W/2, y+4, {align:'center'});
-  y += 12;
+  doc.text('Orden de Servicio – Visita de Calidad', PAGE_W/2, y+3, {align:'center'});
+  y += 9;
 
   // Datos del cliente
-  doc.setFontSize(11);
+  doc.setFontSize(10);
   doc.setTextColor(0,0,0);
   doc.text('Datos del cliente', MARGIN, y);
-  y += 4;
+  y += 3;
 
-  const rows = [
-    ['Cliente:', v.general.cliente, 'Sitio:', v.general.sitio],
-    ['Contacto del cliente en sitio:', v.general.contacto, '', ''],
-    ['Dirección:', v.general.direccion, '', ''],
-    ['Código Postal, entidad federativa, municipio:', v.general.cp, '', ''],
-  ];
   doc.setDrawColor(...COL_BORDER);
-  doc.setFontSize(9);
+  doc.setFontSize(8);
 
   // Cliente / Sitio row
-  let rh = 7;
+  let rh = 5.5;
   doc.rect(MARGIN, y, CONTENT_W, rh);
   doc.setTextColor(...COL_TEAL);
-  doc.text('Cliente: ' + (v.general.cliente||''), MARGIN+2, y+4.5);
-  doc.text('Sitio: ' + (v.general.sitio||''), MARGIN+CONTENT_W*0.6, y+4.5);
+  doc.text('Cliente: ' + (v.general.cliente||''), MARGIN+2, y+3.8);
+  doc.text('Sitio: ' + (v.general.sitio||''), MARGIN+CONTENT_W*0.6, y+3.8);
   y += rh;
 
   const fieldRows = [
@@ -220,80 +214,79 @@ function generateAgenciaOrdenPdf(v){
   ];
   fieldRows.forEach(([label, value])=>{
     const valLines = doc.splitTextToSize(String(value||''), CONTENT_W - 70);
-    const h = Math.max(7, valLines.length*4+2);
+    const h = Math.max(rh, valLines.length*3.2+2);
     doc.rect(MARGIN, y, CONTENT_W, h);
     doc.setTextColor(...COL_TEAL);
-    doc.text(label, MARGIN+2, y+4.5);
+    doc.text(label, MARGIN+2, y+3.8);
     doc.setTextColor(0,0,0);
-    doc.text(valLines, MARGIN+68, y+4.5);
+    doc.text(valLines, MARGIN+68, y+3.8);
     y += h;
   });
 
   // Tel / Ext / Correo row
   doc.rect(MARGIN, y, CONTENT_W, rh);
   doc.setTextColor(...COL_TEAL);
-  doc.text('Tel: ' + (v.general.tel||''), MARGIN+2, y+4.5);
-  doc.text('Ext: ' + (v.general.ext||''), MARGIN+CONTENT_W*0.45, y+4.5);
-  doc.text('Correo: ' + (v.general.correo||''), MARGIN+CONTENT_W*0.6, y+4.5);
-  y += rh + 4;
+  doc.text('Tel: ' + (v.general.tel||''), MARGIN+2, y+3.8);
+  doc.text('Ext: ' + (v.general.ext||''), MARGIN+CONTENT_W*0.45, y+3.8);
+  doc.text('Correo: ' + (v.general.correo||''), MARGIN+CONTENT_W*0.6, y+3.8);
+  y += rh + 2;
 
   // Protocolo de revision
-  doc.setFontSize(13);
+  doc.setFontSize(11);
   doc.setTextColor(...COL_NAVY);
   doc.text('Protocolo de revisión', PAGE_W/2, y, {align:'center'});
-  y += 6;
+  y += 4;
 
   y = drawChecklistTable(doc, y, SECCION1, v.checklist1, '1.  Energía y tierra – Instalación del cliente');
-  y += 3;
+  y += 2;
 
-  if(y > PAGE_H - 60){ doc.addPage(); y = 15; }
-  doc.setFontSize(9);
+  doc.setFontSize(8);
   doc.setTextColor(...COL_TEAL);
   doc.setFont('helvetica','italic');
   const noteLines = doc.splitTextToSize('El apartado 2 se llenará al finalizar el protocolo con el responsable por el cliente:', CONTENT_W);
-  doc.text(noteLines, MARGIN, y+4);
+  doc.text(noteLines, MARGIN, y+3);
   doc.setFont('helvetica','normal');
-  y += noteLines.length*4 + 3;
+  y += noteLines.length*3.2 + 2;
 
   y = drawChecklistTable(doc, y, SECCION2, v.checklist2, '2.  Conocimiento de operación – Cliente');
-  y += 6;
+  y += 4;
 
-  // Firmas Por IBServices / Por cliente
-  if(y > PAGE_H - 70){ doc.addPage(); y = 15; }
+  // Firmas Por IBServices / Por cliente (siempre en pagina 1)
+  if(y > PAGE_H - 45){ doc.addPage(); y = 15; }
   const halfW = CONTENT_W/2;
-  doc.setFontSize(12);
+  doc.setFontSize(11);
   doc.setFont('helvetica','bold');
   doc.setTextColor(...COL_NAVY);
-  doc.text('Por IBServices', MARGIN + halfW/2, y+5, {align:'center'});
-  doc.text('Por cliente', MARGIN + halfW + halfW/2, y+5, {align:'center'});
-  y += 8;
+  doc.text('Por IBServices', MARGIN + halfW/2, y+4, {align:'center'});
+  doc.text('Por cliente', MARGIN + halfW + halfW/2, y+4, {align:'center'});
+  y += 6;
 
   // Nombre y firma boxes
-  doc.setFontSize(9);
+  doc.setFontSize(8);
   doc.setTextColor(...COL_TEAL);
   doc.setFont('helvetica','bold');
-  const sigBoxH = 28;
+  const sigBoxH = 26;
   doc.setDrawColor(...COL_BORDER);
   doc.rect(MARGIN, y, halfW, sigBoxH);
   doc.rect(MARGIN+halfW, y, halfW, sigBoxH);
-  doc.text('Nombre y firma:', MARGIN+2, y+5);
-  doc.text('Nombre y firma:', MARGIN+halfW+2, y+5);
+  doc.text('Nombre y firma:', MARGIN+2, y+4);
+  doc.text('Nombre y firma:', MARGIN+halfW+2, y+4);
   doc.setFont('helvetica','normal');
   doc.setTextColor(0,0,0);
-  doc.setFontSize(8);
-  doc.text(v.firmas.ib_nombre || '', MARGIN+2, y+9);
-  doc.text(v.firmas.cliente_nombre || '', MARGIN+halfW+2, y+9);
+  doc.setFontSize(7.5);
+  doc.text(v.firmas.ib_nombre || '', MARGIN+2, y+7.5);
+  doc.text(v.firmas.cliente_nombre || '', MARGIN+halfW+2, y+7.5);
 
   // Firmas (imagenes)
   try{
-    if(v.firmas.sig_ib) doc.addImage(v.firmas.sig_ib, 'PNG', MARGIN+5, y+10, halfW-10, sigBoxH-12);
+    if(v.firmas.sig_ib) doc.addImage(v.firmas.sig_ib, 'PNG', MARGIN+5, y+8.5, halfW-10, sigBoxH-10.5);
   }catch(e){}
   try{
-    if(v.firmas.sig_cliente) doc.addImage(v.firmas.sig_cliente, 'PNG', MARGIN+halfW+5, y+10, halfW-10, sigBoxH-12);
+    if(v.firmas.sig_cliente) doc.addImage(v.firmas.sig_cliente, 'PNG', MARGIN+halfW+5, y+8.5, halfW-10, sigBoxH-10.5);
   }catch(e){}
-  y += sigBoxH;
+  y += sigBoxH + 2;
 
-  // Comentarios
+  // Comentarios (puede continuar en la siguiente pagina)
   const comBoxH = 50;
   if(y + comBoxH > PAGE_H - 22){ doc.addPage(); y = 15; }
   doc.setFontSize(9);
@@ -445,10 +438,10 @@ function generateTerminalOrdenPdf(v){
   let y = drawHeader(doc, v);
 
   doc.setFont('helvetica','normal');
-  doc.setFontSize(18);
+  doc.setFontSize(15);
   doc.setTextColor(...COL_NAVY);
-  doc.text('Orden de Servicio – Visita de Calidad', PAGE_W/2, y+4, {align:'center'});
-  y += 12;
+  doc.text('Orden de Servicio – Visita de Calidad', PAGE_W/2, y+3, {align:'center'});
+  y += 9;
 
   // Tabla info terminal
   const idTerminal = v.terminal.id || '[Nombre]';
@@ -458,29 +451,29 @@ function generateTerminalOrdenPdf(v){
   const colW1 = CONTENT_W * 0.32, colW2 = CONTENT_W * 0.18, colW3 = CONTENT_W * 0.18, colW4 = CONTENT_W * 0.32;
 
   // Header row
-  doc.rect(MARGIN, y, CONTENT_W, 7, 'FD');
+  doc.rect(MARGIN, y, CONTENT_W, 6, 'FD');
   doc.setFont('helvetica','bold');
-  doc.setFontSize(10);
+  doc.setFontSize(9);
   doc.setTextColor(0,0,0);
-  doc.text('ID de terminal en tablero ' + idTerminal, MARGIN+2, y+5);
-  y += 7;
+  doc.text('ID de terminal en tablero ' + idTerminal, MARGIN+2, y+4.3);
+  y += 6;
 
   function infoRow(label1, val1, label2, val2){
-    const h = 7;
+    const h = 6;
     doc.setFillColor(255,255,255);
     doc.rect(MARGIN, y, colW1, h, 'FD');
     doc.rect(MARGIN+colW1, y, colW2, h, 'FD');
     doc.rect(MARGIN+colW1+colW2, y, colW3, h, 'FD');
     doc.rect(MARGIN+colW1+colW2+colW3, y, colW4, h, 'FD');
     doc.setFont('helvetica','bold');
-    doc.setFontSize(9);
+    doc.setFontSize(8);
     doc.setTextColor(...COL_TEAL);
-    doc.text(label1, MARGIN+2, y+4.5);
-    doc.text(label2, MARGIN+colW1+colW2+2, y+4.5);
+    doc.text(label1, MARGIN+2, y+4);
+    doc.text(label2, MARGIN+colW1+colW2+2, y+4);
     doc.setFont('helvetica','normal');
     doc.setTextColor(0,0,0);
-    doc.text(String(val1||''), MARGIN+colW1+2, y+4.5);
-    doc.text(String(val2||''), MARGIN+colW1+colW2+colW3+2, y+4.5);
+    doc.text(String(val1||''), MARGIN+colW1+2, y+4);
+    doc.text(String(val2||''), MARGIN+colW1+colW2+colW3+2, y+4);
     y += h;
   }
   infoRow('Número de serie', v.terminal.serie, 'MAC', v.terminal.mac);
@@ -488,16 +481,16 @@ function generateTerminalOrdenPdf(v){
 
   // Biometrico row
   {
-    const h = 9;
+    const h = 8;
     doc.setFillColor(255,255,255);
     doc.rect(MARGIN, y, colW1, h, 'FD');
     doc.rect(MARGIN+colW1, y, colW2, h, 'FD');
     doc.rect(MARGIN+colW1+colW2, y, colW3, h, 'FD');
     doc.rect(MARGIN+colW1+colW2+colW3, y, colW4, h, 'FD');
     doc.setFont('helvetica','bold');
-    doc.setFontSize(9);
+    doc.setFontSize(8);
     doc.setTextColor(...COL_TEAL);
-    doc.text('Versión de biométrico', MARGIN+2, y+5);
+    doc.text('Versión de biométrico', MARGIN+2, y+4.3);
     doc.setFont('helvetica','normal');
     doc.setTextColor(0,0,0);
     const opts = ['G3.3C','G3.4C','G3.6C'];
@@ -506,58 +499,58 @@ function generateTerminalOrdenPdf(v){
     opts.forEach((opt,i)=>{
       const marker = (opt===sel) ? '> ' : '';
       doc.setFont('helvetica', opt===sel ? 'bold':'normal');
-      doc.text(marker + opt, xpos[i], y+4.5);
+      doc.text(marker + opt, xpos[i], y+4);
       if(opt==='G3.3C'){
-        doc.setFontSize(6);
-        doc.text('(necesario cambio de equipo)', xpos[i], y+8);
-        doc.setFontSize(9);
+        doc.setFontSize(5.5);
+        doc.text('(necesario cambio de equipo)', xpos[i], y+7);
+        doc.setFontSize(8);
       }
     });
-    y += h + 3;
+    y += h + 2;
   }
 
   // Sección 3
   y = drawChecklistTable(doc, y, SECCION3, v.checklist3, '1.  Energía y red por terminal');
-  y += 3;
+  y += 2;
 
   // Sección 4
   y = drawChecklistTable(doc, y, SECCION4, v.checklist4, '2.  Hardware y entorno ambiental');
-  y += 6;
+  y += 4;
 
-  // Firmas
-  if(y > PAGE_H - 70){ doc.addPage(); y = 15; }
+  // Firmas (siempre en pagina 1)
+  if(y > PAGE_H - 45){ doc.addPage(); y = 15; }
   const halfW = CONTENT_W/2;
-  doc.setFontSize(12);
+  doc.setFontSize(11);
   doc.setFont('helvetica','bold');
   doc.setTextColor(...COL_NAVY);
-  doc.text('Por IBServices', MARGIN + halfW/2, y+5, {align:'center'});
-  doc.text('Por cliente', MARGIN + halfW + halfW/2, y+5, {align:'center'});
-  y += 8;
+  doc.text('Por IBServices', MARGIN + halfW/2, y+4, {align:'center'});
+  doc.text('Por cliente', MARGIN + halfW + halfW/2, y+4, {align:'center'});
+  y += 6;
 
-  doc.setFontSize(9);
+  doc.setFontSize(8);
   doc.setTextColor(...COL_TEAL);
   doc.setFont('helvetica','bold');
-  const sigBoxH = 28;
+  const sigBoxH = 26;
   doc.setDrawColor(...COL_BORDER);
   doc.rect(MARGIN, y, halfW, sigBoxH);
   doc.rect(MARGIN+halfW, y, halfW, sigBoxH);
-  doc.text('Nombre y firma:', MARGIN+2, y+5);
-  doc.text('Nombre y firma:', MARGIN+halfW+2, y+5);
+  doc.text('Nombre y firma:', MARGIN+2, y+4);
+  doc.text('Nombre y firma:', MARGIN+halfW+2, y+4);
   doc.setFont('helvetica','normal');
   doc.setTextColor(0,0,0);
-  doc.setFontSize(8);
-  doc.text(v.firmas.ib_nombre || '', MARGIN+2, y+9);
-  doc.text(v.firmas.cliente_nombre || '', MARGIN+halfW+2, y+9);
+  doc.setFontSize(7.5);
+  doc.text(v.firmas.ib_nombre || '', MARGIN+2, y+7.5);
+  doc.text(v.firmas.cliente_nombre || '', MARGIN+halfW+2, y+7.5);
 
   try{
-    if(v.firmas.sig_ib_term) doc.addImage(v.firmas.sig_ib_term, 'PNG', MARGIN+5, y+10, halfW-10, sigBoxH-12);
+    if(v.firmas.sig_ib_term) doc.addImage(v.firmas.sig_ib_term, 'PNG', MARGIN+5, y+8.5, halfW-10, sigBoxH-10.5);
   }catch(e){}
   try{
-    if(v.firmas.sig_cliente_term) doc.addImage(v.firmas.sig_cliente_term, 'PNG', MARGIN+halfW+5, y+10, halfW-10, sigBoxH-12);
+    if(v.firmas.sig_cliente_term) doc.addImage(v.firmas.sig_cliente_term, 'PNG', MARGIN+halfW+5, y+8.5, halfW-10, sigBoxH-10.5);
   }catch(e){}
-  y += sigBoxH;
+  y += sigBoxH + 2;
 
-  // Comentarios
+  // Comentarios (puede continuar en la siguiente pagina)
   const comBoxH = 50;
   if(y + comBoxH > PAGE_H - 22){ doc.addPage(); y = 15; }
   doc.setFontSize(9);
