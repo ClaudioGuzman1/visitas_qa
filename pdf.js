@@ -477,7 +477,7 @@ function generateTerminalOrdenPdf(v){
     y += h;
   }
   infoRow('Número de serie', v.terminal.serie, 'MAC', v.terminal.mac);
-  infoRow('Versión de firmware', v.terminal.firmware, 'Validar configuración app', v.terminal.validar || 'Testigo fotográfico');
+  infoRow('Versión de firmware', v.terminal.firmware, 'Validar App Config.', v.terminal.validar || 'Testigo fotográfico');
 
   // Biometrico row
   {
