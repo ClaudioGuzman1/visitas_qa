@@ -70,6 +70,15 @@ function showList(){
 function showForm(){
   viewList.classList.add('hidden');
   viewForm.classList.remove('hidden');
+  resizeAllSignaturePads();
+}
+
+function resizeAllSignaturePads(){
+  setTimeout(()=>{
+    Object.values(sigCanvases).forEach(c=>{
+      try{ c.resize(); }catch(e){}
+    });
+  }, 50);
 }
 
 // Tabs
@@ -79,6 +88,7 @@ document.querySelectorAll('.tabs button').forEach(btn=>{
     document.querySelectorAll('.tabpanel').forEach(p=>p.classList.remove('active'));
     btn.classList.add('active');
     document.querySelector(`.tabpanel[data-tab="${btn.dataset.tab}"]`).classList.add('active');
+    if(btn.dataset.tab === 'firmas') resizeAllSignaturePads();
   });
 });
 
@@ -255,12 +265,13 @@ function loadFormFromVisit(v){
   });
 
   // Firmas: cargar en canvas
+  resizeAllSignaturePads();
   setTimeout(()=>{
     loadSignatureToCanvas('sig_ib', v.firmas.sig_ib);
     loadSignatureToCanvas('sig_cliente', v.firmas.sig_cliente);
     loadSignatureToCanvas('sig_ib_term', v.firmas.sig_ib_term);
     loadSignatureToCanvas('sig_cliente_term', v.firmas.sig_cliente_term);
-  }, 50);
+  }, 100);
 
   // Reset tabs a la primera
   document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('active'));
@@ -382,39 +393,55 @@ const sigCanvases = {};
 function setupSignaturePad(id){
   const canvas = document.getElementById(id);
   const ctx = canvas.getContext('2d');
+
   function resize(){
-    const ratio = window.devicePixelRatio || 1;
     const rect = canvas.getBoundingClientRect();
-    const prevData = canvas.toDataURL();
-    canvas.width = rect.width * ratio;
-    canvas.height = rect.height * ratio;
+    const w = rect.width || canvas.clientWidth || 300;
+    const h = rect.height || canvas.clientHeight || 150;
+    if(w === 0 || h === 0) return; // canvas oculto, no redimensionar todavia
+
+    const ratio = window.devicePixelRatio || 1;
+    const newW = Math.round(w * ratio);
+    const newH = Math.round(h * ratio);
+    if(canvas.width === newW && canvas.height === newH) return; // sin cambios
+
+    let prevData = null;
+    try{ if(sigCanvases[id] && sigCanvases[id].hasContent) prevData = canvas.toDataURL(); }catch(e){}
+
+    canvas.width = newW;
+    canvas.height = newH;
+    ctx.setTransform(1,0,0,1,0,0);
     ctx.scale(ratio, ratio);
     ctx.lineWidth = 2;
     ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
     ctx.strokeStyle = '#1a1a4e';
-    // restore previous drawing if any
-    if(sigCanvases[id] && sigCanvases[id].hasContent){
+
+    if(prevData){
       const img = new Image();
-      img.onload = ()=>ctx.drawImage(img, 0, 0, rect.width, rect.height);
+      img.onload = ()=>ctx.drawImage(img, 0, 0, w, h);
       img.src = prevData;
     }
   }
-  sigCanvases[id] = { canvas, ctx, drawing:false, hasContent:false };
-  resize();
-  window.addEventListener('resize', resize);
+  sigCanvases[id] = { canvas, ctx, drawing:false, hasContent:false, resize };
+  try{ resize(); }catch(e){ console.warn('No se pudo inicializar firma', id, e); }
+  window.addEventListener('resize', ()=>{ try{ resize(); }catch(e){} });
 
   function getPos(e){
     const rect = canvas.getBoundingClientRect();
-    const touch = e.touches ? e.touches[0] : e;
-    return { x: touch.clientX - rect.left, y: touch.clientY - rect.top };
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
   }
   function start(e){
     e.preventDefault();
+    canvas.setPointerCapture && canvas.setPointerCapture(e.pointerId);
     sigCanvases[id].drawing = true;
     sigCanvases[id].hasContent = true;
     const pos = getPos(e);
     ctx.beginPath();
     ctx.moveTo(pos.x, pos.y);
+    // Dibuja un punto al iniciar, por si es un solo toque/click
+    ctx.lineTo(pos.x + 0.01, pos.y + 0.01);
+    ctx.stroke();
   }
   function move(e){
     if(!sigCanvases[id].drawing) return;
@@ -424,18 +451,31 @@ function setupSignaturePad(id){
     ctx.stroke();
   }
   function end(e){
+    if(!sigCanvases[id].drawing) return;
     sigCanvases[id].drawing = false;
+    try{ canvas.releasePointerCapture && canvas.releasePointerCapture(e.pointerId); }catch(err){}
   }
-  canvas.addEventListener('mousedown', start);
-  canvas.addEventListener('mousemove', move);
-  canvas.addEventListener('mouseup', end);
-  canvas.addEventListener('mouseleave', end);
-  canvas.addEventListener('touchstart', start, {passive:false});
-  canvas.addEventListener('touchmove', move, {passive:false});
-  canvas.addEventListener('touchend', end);
+  canvas.style.touchAction = 'none';
+  canvas.addEventListener('pointerdown', start);
+  canvas.addEventListener('pointermove', move);
+  canvas.addEventListener('pointerup', end);
+  canvas.addEventListener('pointercancel', end);
+  canvas.addEventListener('pointerleave', end);
 }
 
 ['sig_ib','sig_cliente','sig_ib_term','sig_cliente_term'].forEach(setupSignaturePad);
+
+// ====== Carga de firma desde imagen ======
+document.querySelectorAll('input[type=file][data-sigupload]').forEach(input=>{
+  input.addEventListener('change', async (e)=>{
+    const id = input.dataset.sigupload;
+    const file = e.target.files[0];
+    if(!file) return;
+    const dataUrl = await fileToDataUrl(file);
+    loadSignatureToCanvas(id, dataUrl, true);
+    e.target.value = '';
+  });
+});
 
 document.querySelectorAll('button[data-clearsig]').forEach(btn=>{
   btn.addEventListener('click', ()=>{
@@ -452,16 +492,23 @@ function getSignatureDataUrl(id){
   return c.canvas.toDataURL('image/png');
 }
 
-function loadSignatureToCanvas(id, dataUrl){
+function loadSignatureToCanvas(id, dataUrl, markAsContent){
   const c = sigCanvases[id];
   if(!c) return;
-  c.ctx.clearRect(0,0,c.canvas.width,c.canvas.height);
+  try{ c.resize(); }catch(e){}
+  const rect = c.canvas.getBoundingClientRect();
+  const w = rect.width || c.canvas.clientWidth || 300;
+  const h = rect.height || c.canvas.clientHeight || 150;
+  c.ctx.clearRect(0,0,w,h);
   c.hasContent = false;
   if(!dataUrl) return;
   const img = new Image();
   img.onload = ()=>{
-    const rect = c.canvas.getBoundingClientRect();
-    c.ctx.drawImage(img, 0, 0, rect.width, rect.height);
+    // Ajustar imagen dentro del canvas preservando proporcion
+    let dw = w, dh = h * (img.height / img.width);
+    if(dh > h){ dh = h; dw = w * (img.width / img.height); }
+    const ox = (w - dw)/2, oy = (h - dh)/2;
+    c.ctx.drawImage(img, ox, oy, dw, dh);
     c.hasContent = true;
   };
   img.src = dataUrl;

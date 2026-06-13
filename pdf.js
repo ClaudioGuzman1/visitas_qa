@@ -58,7 +58,7 @@ function formatFechaParts(fechaStr){
 
 // Pie de pagina con texto legal y barra de color
 function drawFooter(doc, pageNum){
-  const y = PAGE_H - 8;
+  const y = PAGE_H - 18;
   doc.setFont('helvetica','normal');
   doc.setFontSize(8);
   doc.setTextColor(80,80,80);
@@ -259,7 +259,7 @@ function generateAgenciaOrdenPdf(v){
   y += 6;
 
   // Firmas Por IBServices / Por cliente
-  // if(y > PAGE_H - 70){ doc.addPage(); y = 15; }
+  if(y > PAGE_H - 70){ doc.addPage(); y = 15; }
   const halfW = CONTENT_W/2;
   doc.setFontSize(12);
   doc.setFont('helvetica','bold');
@@ -293,13 +293,9 @@ function generateAgenciaOrdenPdf(v){
   }catch(e){}
   y += sigBoxH;
 
-  // Comentarios (siempre en la pagina siguiente a las firmas)
-  doc.addPage();
-  y = 15;
+  // Comentarios
   const comBoxH = 50;
-
-
-  //if(y + comBoxH > PAGE_H - 22){ doc.addPage(); y = 15; }
+  if(y + comBoxH > PAGE_H - 22){ doc.addPage(); y = 15; }
   doc.setFontSize(9);
   doc.setTextColor(0,0,0);
   doc.setFont('helvetica','normal');
@@ -312,34 +308,9 @@ function generateAgenciaOrdenPdf(v){
   downloadPdf(doc, `Orden_de_servicio_Agencia_${safeFilename(v.nombre)}.pdf`);
 }
 
-// Altura maxima de la imagen para que entren 2 fotografias por pagina
-const MAX_PHOTO_IMG_H = 90;
-
 // ====== Helper: dibuja un bloque de seccion con imagenes ======
 // title: titulo seccion oscuro (navy), subtitle: barra teal (opcional), images: array dataURL
 function drawPhotoSection(doc, y, title, subtitle, images, commentText){
-  const imgs = images || [];
-
-  // Altura del encabezado (titulo + subtitulo) que debe permanecer junto a la primera fotografia
-  let headerH = 0;
-  if(title) headerH += 7;
-  if(subtitle) headerH += 6;
-
-  // Altura de la primera "unidad" (encabezado + primera foto, o encabezado + placeholder)
-  let firstUnitH = headerH;
-  if(imgs.length === 0){
-    firstUnitH += 20; // placeholder "(Sin fotografía)"
-  } else {
-    const dim0 = getImageDisplaySize(imgs[0], CONTENT_W - 10);
-    firstUnitH += dim0.h + 8;
-  }
-
-  // Si el encabezado + primera foto no caben juntos en la pagina actual, saltar de pagina ANTES de dibujar el encabezado
-  if(headerH > 0 && y + firstUnitH > PAGE_H - 22){
-    doc.addPage();
-    y = 15;
-  }
-
   // Titulo navy
   if(title){
     if(y > PAGE_H - 25){ doc.addPage(); y = 15; }
@@ -363,6 +334,7 @@ function drawPhotoSection(doc, y, title, subtitle, images, commentText){
   }
 
   // Marco contenedor para imagenes
+  const imgs = images || [];
   if(imgs.length === 0){
     const boxH = 20;
     if(y + boxH > PAGE_H - 22){ doc.addPage(); y = 15; }
@@ -410,19 +382,18 @@ function drawPhotoSection(doc, y, title, subtitle, images, commentText){
   return y + 3;
 }
 
-// Calcula tamaño de imagen embebida (max width), preservando proporcion, altura limitada
-// para que entren exactamente 2 fotografias por pagina
+// Calcula tamaño de imagen embebida (max width), preservando proporcion, max height 90mm
 function getImageDisplaySize(dataUrl, maxW){
+  // Aproximacion: usamos relacion 4:3 por defecto (suficiente para layout consistente)
+  // jsPDF requiere dimensiones explicitas; usamos cache si la imagen ya fue medida
   const cacheKey = dataUrl.slice(0,100);
   if(_imgSizeCache[cacheKey]) {
     const {w,h} = _imgSizeCache[cacheKey];
     let dw = maxW, dh = h * (maxW/w);
-    if(dh > MAX_PHOTO_IMG_H){ dh = MAX_PHOTO_IMG_H; dw = w * (MAX_PHOTO_IMG_H/h); }
+    if(dh > 90){ dh = 90; dw = w * (90/h); }
     return {w:dw, h:dh};
   }
-  let dw = maxW, dh = maxW*0.65;
-  if(dh > MAX_PHOTO_IMG_H){ dh = MAX_PHOTO_IMG_H; dw = dh/0.65; }
-  return {w:dw, h:dh};
+  return {w:maxW, h:maxW*0.65};
 }
 const _imgSizeCache = {};
 function preloadImageSizes(images){
@@ -513,7 +484,7 @@ function generateTerminalOrdenPdf(v){
     y += h;
   }
   infoRow('Número de serie', v.terminal.serie, 'MAC', v.terminal.mac);
-  infoRow('Versión de firmware', v.terminal.firmware, 'Validar App Config', v.terminal.validar || 'Testigo fotográfico');
+  infoRow('Versión de firmware', v.terminal.firmware, 'Validar configuración app', v.terminal.validar || 'Testigo fotográfico');
 
   // Biometrico row
   {
@@ -538,10 +509,7 @@ function generateTerminalOrdenPdf(v){
       doc.text(marker + opt, xpos[i], y+4.5);
       if(opt==='G3.3C'){
         doc.setFontSize(6);
-        doc.setTextColor(...COL_TEAL);
         doc.text('(necesario cambio de equipo)', xpos[i], y+8);
-        doc.setTextColor(0,0,0);
-
         doc.setFontSize(9);
       }
     });
@@ -557,7 +525,7 @@ function generateTerminalOrdenPdf(v){
   y += 6;
 
   // Firmas
-  //if(y > PAGE_H - 70){ doc.addPage(); y = 15; }
+  if(y > PAGE_H - 70){ doc.addPage(); y = 15; }
   const halfW = CONTENT_W/2;
   doc.setFontSize(12);
   doc.setFont('helvetica','bold');
@@ -589,13 +557,9 @@ function generateTerminalOrdenPdf(v){
   }catch(e){}
   y += sigBoxH;
 
-  // Comentarios (siempre en la pagina siguiente a las firmas)
-  doc.addPage();
-  y = 15;
+  // Comentarios
   const comBoxH = 50;
-
-
-  //if(y + comBoxH > PAGE_H - 22){ doc.addPage(); y = 15; }
+  if(y + comBoxH > PAGE_H - 22){ doc.addPage(); y = 15; }
   doc.setFontSize(9);
   doc.setTextColor(0,0,0);
   doc.setFont('helvetica','normal');

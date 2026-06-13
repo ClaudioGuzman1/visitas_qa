@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Visitas QA - IBServices</title>
+<title>Visitas de Calidad - IBServices</title>
 <script src="jspdf.umd.min.js"></script>
 <style>
   :root{
@@ -107,7 +107,7 @@
 <header class="app-header">
   <div class="logo">
     <img id="logoImg" src="" alt="IBServices">
-    <h1>Visitas de Calidad 👌🏾</h1>
+    <h1>Visitas de Calidad</h1>
   </div>
   <div class="btn-row" style="margin:0;">
     <button class="btn green" id="btnNueva">+ Nueva Visita</button>
@@ -338,19 +338,19 @@
 
       <h3>Firma - Por IBServices</h3>
       <div class="sig-wrap"><canvas class="sigpad" id="sig_ib"></canvas></div>
-      <div class="btn-row"><button class="btn secondary small-btn" data-clearsig="sig_ib">Borrar firma</button></div>
+      <div class="btn-row"><button class="btn secondary small-btn" data-clearsig="sig_ib">Borrar firma</button><label class="btn navy small-btn" style="cursor:pointer;">Cargar imagen de firma<input type="file" accept="image/*" class="hidden" data-sigupload="sig_ib"></label></div>
 
       <h3>Firma - Por cliente</h3>
       <div class="sig-wrap"><canvas class="sigpad" id="sig_cliente"></canvas></div>
-      <div class="btn-row"><button class="btn secondary small-btn" data-clearsig="sig_cliente">Borrar firma</button></div>
+      <div class="btn-row"><button class="btn secondary small-btn" data-clearsig="sig_cliente">Borrar firma</button><label class="btn navy small-btn" style="cursor:pointer;">Cargar imagen de firma<input type="file" accept="image/*" class="hidden" data-sigupload="sig_cliente"></label></div>
 
       <h3>Firma - Terminal (Por IBServices)</h3>
       <div class="sig-wrap"><canvas class="sigpad" id="sig_ib_term"></canvas></div>
-      <div class="btn-row"><button class="btn secondary small-btn" data-clearsig="sig_ib_term">Borrar firma</button></div>
+      <div class="btn-row"><button class="btn secondary small-btn" data-clearsig="sig_ib_term">Borrar firma</button><label class="btn navy small-btn" style="cursor:pointer;">Cargar imagen de firma<input type="file" accept="image/*" class="hidden" data-sigupload="sig_ib_term"></label></div>
 
       <h3>Firma - Terminal (Por cliente)</h3>
       <div class="sig-wrap"><canvas class="sigpad" id="sig_cliente_term"></canvas></div>
-      <div class="btn-row"><button class="btn secondary small-btn" data-clearsig="sig_cliente_term">Borrar firma</button></div>
+      <div class="btn-row"><button class="btn secondary small-btn" data-clearsig="sig_cliente_term">Borrar firma</button><label class="btn navy small-btn" style="cursor:pointer;">Cargar imagen de firma<input type="file" accept="image/*" class="hidden" data-sigupload="sig_cliente_term"></label></div>
     </div>
 
     <div class="btn-row">
